@@ -76,7 +76,8 @@ textarea {
 
 button,
 .primary,
-.quiet {
+.quiet,
+.button-link {
   border: 1px solid #c5cec1;
   background: #ffffff;
   color: #18201d;
@@ -92,7 +93,8 @@ button,
 
 button:hover,
 .primary:hover,
-.quiet:hover {
+.quiet:hover,
+.button-link:hover {
   border-color: #25635b;
 }
 
@@ -617,8 +619,17 @@ a {
   text-decoration: none;
 }
 
+.button-link {
+  color: #18201d;
+  font-weight: 400;
+}
+
 a:hover {
   text-decoration: underline;
+}
+
+.button-link:hover {
+  text-decoration: none;
 }
 
 .notification {

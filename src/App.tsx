@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock3,
   Database,
+  Download,
   FileSpreadsheet,
   Mail,
   MapPin,
@@ -337,6 +338,10 @@ function App() {
             <RefreshCw size={17} />
             Refresh Commutes
           </button>
+          <a className="button-link" href="/api/export/report">
+            <Download size={17} />
+            Export Report
+          </a>
         </div>
       </header>
 

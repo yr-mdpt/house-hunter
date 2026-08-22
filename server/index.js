@@ -24,6 +24,7 @@ import { compactListing } from './normalize.js';
 import { classifyCommute } from './geo.js';
 import { classifyListingFromRoadCache, fetchCountyRoads } from './roadCache.js';
 import { ROAD_CACHE_COUNTIES } from './roadCacheConfig.js';
+import { renderShareReport } from './shareReport.js';
 
 const PORT = Number(process.env.PORT ?? 4242);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -67,6 +68,21 @@ app.get('/api/cities', (_req, res) => {
 
 app.get('/api/notifications', (_req, res) => {
   res.json(listNotifications(db));
+});
+
+app.get('/api/export/report', (_req, res) => {
+  const generatedAt = new Date().toISOString();
+  const html = renderShareReport({
+    generatedAt,
+    listings: listListings(db, { limit: 'all' }),
+    notifications: listNotifications(db, { all: true }),
+    stats: getStats(db),
+    cities: listCities(db),
+  });
+  const date = generatedAt.slice(0, 10);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="house-hunter-report-${date}.html"`);
+  res.send(html);
 });
 
 app.get('/api/jobs/current', (_req, res) => {

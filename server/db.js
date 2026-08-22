@@ -193,11 +193,12 @@ export function listListings(db, params = {}) {
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const orderBy = orderByFor(params.sort);
+  const limitClause = params.limit === 'all' ? '' : 'LIMIT 500';
   const rows = db.prepare(`
     SELECT * FROM listings
     ${where}
     ORDER BY ${orderBy}
-    LIMIT 500
+    ${limitClause}
   `).all(values);
   return rows.map(decodeListing);
 }
