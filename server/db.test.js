@@ -129,6 +129,28 @@ test('filters by city and sorts by price and commute distance', () => {
   assert.equal(listListings(db, { sort: 'distance_asc' })[0].distance_miles, 12.5);
 });
 
+test('stores and backfills year built from Redfin raw payloads', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
+  const path = join(dir, 'test.sqlite');
+  const db = openDatabase(path);
+
+  const listing = upsertListing(db, compactListing({
+    source: 'redfin_export',
+    address: '50 Year Built Way',
+    city: 'Durham',
+    state: 'NC',
+    year_built: '2019',
+    raw: { 'YEAR BUILT': '2019' },
+  }));
+
+  assert.equal(listListings(db)[0].year_built, 2019);
+  db.prepare('UPDATE listings SET year_built = NULL WHERE id = ?').run(listing.id);
+  db.close();
+
+  const reopened = openDatabase(path);
+  assert.equal(listListings(reopened)[0].year_built, 2019);
+});
+
 test('classifies Raleigh listings into quadrants around downtown', () => {
   assert.equal(classifyCityArea({ city: 'Raleigh', latitude: 35.79, longitude: -78.63 }), 'Raleigh NE');
   assert.equal(classifyCityArea({ city: 'Raleigh', latitude: 35.79, longitude: -78.65 }), 'Raleigh NW');

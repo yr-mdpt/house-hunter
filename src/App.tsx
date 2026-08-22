@@ -28,6 +28,7 @@ type Listing = {
   baths: number | null
   sqft: number | null
   lot: string
+  year_built: number | null
   property_type: string
   listing_type: string
   status: string
@@ -154,6 +155,7 @@ function App() {
     beds: '',
     baths: '',
     sqft: '',
+    year_built: '',
     listing_type: 'regular_sale',
     notes: '',
   })
@@ -274,6 +276,7 @@ function App() {
       beds: '',
       baths: '',
       sqft: '',
+      year_built: '',
       listing_type: 'regular_sale',
       notes: '',
     })
@@ -407,6 +410,7 @@ function App() {
               <input value={manual.beds} onChange={(event) => setManual({ ...manual, beds: event.target.value })} placeholder="Beds" />
               <input value={manual.baths} onChange={(event) => setManual({ ...manual, baths: event.target.value })} placeholder="Baths" />
               <input value={manual.sqft} onChange={(event) => setManual({ ...manual, sqft: event.target.value })} placeholder="Sqft" />
+              <input value={manual.year_built} onChange={(event) => setManual({ ...manual, year_built: event.target.value })} placeholder="Year built" />
             </div>
             <select
               value={manual.listing_type}
@@ -706,6 +710,7 @@ function ListingRow({
         <span>{formatFact(listing.sqft, 'sqft')}</span>
         <span>{distanceLabel(listing.distance_miles)}</span>
         <span>{facingDetail(listing)}</span>
+        <span>{yearBuiltLabel(listing.year_built)}</span>
         <span>{listing.property_type || 'type unknown'}</span>
       </div>
       {listing.facing_reason && <p className="small">Facing source: {facingReasonLabel(listing.facing_reason)}</p>}
@@ -810,6 +815,10 @@ function commuteLabel(listing: Listing) {
 
 function distanceLabel(value: number | null) {
   return value === null || value === undefined ? 'distance unknown' : `${value.toFixed(1)} mi`
+}
+
+function yearBuiltLabel(value: number | null) {
+  return value ? `built ${value}` : 'year unknown'
 }
 
 function facingLabel(listing: Listing) {

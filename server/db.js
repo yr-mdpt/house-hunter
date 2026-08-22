@@ -34,6 +34,7 @@ export function migrate(db) {
       baths REAL,
       sqft REAL,
       lot TEXT,
+      year_built INTEGER,
       property_type TEXT,
       listing_type TEXT,
       status TEXT,
@@ -112,6 +113,7 @@ export function migrate(db) {
   ensureColumn(db, 'listings', 'url', 'TEXT');
   ensureColumn(db, 'listings', 'city_area', 'TEXT');
   ensureColumn(db, 'listings', 'distance_miles', 'REAL');
+  ensureColumn(db, 'listings', 'year_built', 'INTEGER');
   ensureColumn(db, 'listings', 'facing_degrees', 'REAL');
   ensureColumn(db, 'listings', 'facing_label', 'TEXT');
   ensureColumn(db, 'listings', 'facing_status', 'TEXT');
@@ -125,6 +127,7 @@ export function migrate(db) {
   ensureColumn(db, 'road_cache_status', 'records_downloaded', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'road_cache_status', 'pages_downloaded', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'road_cache_status', 'last_error', 'TEXT');
+  backfillYearBuilt(db);
   backfillCityAreas(db);
   backfillFacingLabels(db);
 }
@@ -381,12 +384,12 @@ export function upsertListing(db, listing) {
     const result = db.prepare(`
       INSERT INTO listings (
         dedupe_key, url, address, city, city_area, state, zip, price, beds, baths, sqft, lot,
-        property_type, listing_type, status, listed_at, auction_at, latitude, longitude, photo_url,
+        year_built, property_type, listing_type, status, listed_at, auction_at, latitude, longitude, photo_url,
         notes, source_refs, raw_payloads
       )
       VALUES (
         $dedupe_key, $url, $address, $city, $city_area, $state, $zip, $price, $beds, $baths, $sqft, $lot,
-        $property_type, $listing_type, $status, $listed_at, $auction_at, $latitude, $longitude, $photo_url,
+        $year_built, $property_type, $listing_type, $status, $listed_at, $auction_at, $latitude, $longitude, $photo_url,
         $notes, $source_refs, $raw_payloads
       )
     `).run({
@@ -402,6 +405,7 @@ export function upsertListing(db, listing) {
       $baths: listing.baths,
       $sqft: listing.sqft,
       $lot: listing.lot,
+      $year_built: listing.year_built,
       $property_type: listing.property_type,
       $listing_type: listing.listing_type,
       $status: listing.status,
@@ -426,7 +430,7 @@ export function upsertListing(db, listing) {
     UPDATE listings SET
       url = $url, address = $address, city = $city, city_area = $city_area, state = $state, zip = $zip,
       price = $price, beds = $beds, baths = $baths, sqft = $sqft, lot = $lot,
-      property_type = $property_type, listing_type = $listing_type, status = $status,
+      year_built = $year_built, property_type = $property_type, listing_type = $listing_type, status = $status,
       listed_at = $listed_at, auction_at = $auction_at, latitude = $latitude, longitude = $longitude, photo_url = $photo_url,
       notes = $notes, source_refs = $source_refs, raw_payloads = $raw_payloads,
       last_seen_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
@@ -444,6 +448,7 @@ export function upsertListing(db, listing) {
     $baths: merged.baths,
     $sqft: merged.sqft,
     $lot: merged.lot,
+    $year_built: merged.year_built,
     $property_type: merged.property_type,
     $listing_type: merged.listing_type,
     $status: merged.status,
@@ -530,6 +535,7 @@ function mergeListing(previous, incoming, sourceRef) {
   const merged = { ...previous };
   for (const key of [
     'url', 'address', 'city', 'state', 'zip', 'price', 'beds', 'baths', 'sqft', 'lot',
+    'year_built',
     'latitude', 'longitude',
     'property_type', 'listing_type', 'status', 'listed_at', 'auction_at', 'photo_url', 'notes',
   ]) {
@@ -628,6 +634,47 @@ function backfillCityAreas(db) {
   for (const row of rows) {
     update.run(classifyCityArea(row), row.id);
   }
+}
+
+function backfillYearBuilt(db) {
+  const rows = db.prepare(`
+    SELECT id, raw_payloads
+    FROM listings
+    WHERE year_built IS NULL
+  `).all();
+  const update = db.prepare('UPDATE listings SET year_built = ? WHERE id = ?');
+  for (const row of rows) {
+    const year = yearBuiltFromRawPayloads(row.raw_payloads);
+    if (year) update.run(year, row.id);
+  }
+}
+
+function yearBuiltFromRawPayloads(rawPayloads) {
+  for (const entry of safeJson(rawPayloads, [])) {
+    const year = yearBuiltFromPayload(entry?.payload);
+    if (year) return year;
+  }
+  return null;
+}
+
+function yearBuiltFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  for (const [key, value] of Object.entries(payload)) {
+    const normalizedKey = String(key).toLowerCase().replace(/[_\s-]+/g, ' ').trim();
+    if (normalizedKey === 'year built' || normalizedKey === 'yearbuilt') {
+      return plausibleYear(value);
+    }
+  }
+  return null;
+}
+
+function plausibleYear(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const match = String(value).replace(/,/g, '').match(/\b(1[7-9]\d{2}|20\d{2})\b/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const maxYear = new Date().getFullYear() + 5;
+  return year >= 1700 && year <= maxYear ? year : null;
 }
 
 function backfillFacingLabels(db) {

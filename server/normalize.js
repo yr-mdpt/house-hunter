@@ -66,6 +66,7 @@ export function compactListing(input) {
     baths: numberFrom(input.baths),
     sqft: numberFrom(input.sqft),
     lot: normalizeText(input.lot),
+    year_built: numberFrom(input.year_built),
     property_type: normalizeText(input.property_type),
     listing_type: normalizeText(input.listing_type) || 'regular_sale',
     status: normalizeText(input.status) || 'active',
