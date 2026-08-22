@@ -7,7 +7,6 @@
     "dev": "node scripts/dev.mjs",
     "server": "node server/index.js",
     "clear-db": "node scripts/clear-db.mjs",
-    "facing:gis-poc": "node scripts/facing-gis-poc.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

@@ -1,6 +1,6 @@
-import { streetNameFromAddress } from './facing.js';
+import { hasStreetNumber, isLikelyNonStreetName, streetNameFromAddress } from './addressParsing.js';
 import { compassLabel, normalizeDegrees } from './facingLabels.js';
-import { bearingDegrees, findNamedRoad } from './gisFacing.js';
+import { bearingDegrees, findNamedRoad } from './roadGeometry.js';
 import { normalizeText } from './normalize.js';
 import { ROAD_CACHE_COUNTIES } from './roadCacheConfig.js';
 
@@ -111,14 +111,6 @@ function listingCoords(listing) {
   const lat = Number(listing.latitude);
   const lon = Number(listing.longitude);
   return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
-}
-
-function hasStreetNumber(address) {
-  return /^[0-9]+[A-Za-z]?\b/.test(normalizeText(address));
-}
-
-function isLikelyNonStreetName(streetName) {
-  return /\b(plan|model|community|homesite|lot)\b/i.test(streetName);
 }
 
 function unknownFacing(reason, streetName = '') {

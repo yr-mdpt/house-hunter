@@ -1,4 +1,4 @@
-import { canonicalStreetName } from './gisFacing.js';
+import { canonicalStreetName } from './roadGeometry.js';
 import { normalizeText } from './normalize.js';
 
 const PAGE_SIZE = 2000;

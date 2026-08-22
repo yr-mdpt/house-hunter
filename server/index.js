@@ -21,12 +21,10 @@ import { parseListingEmail } from './importers/email.js';
 import { collectPublicSaleSources } from './importers/publicSales.js';
 import { compactListing } from './normalize.js';
 import { classifyCommute } from './geo.js';
-import { classifyFacing } from './facing.js';
 import { classifyListingFromRoadCache, fetchCountyRoads } from './roadCache.js';
 import { ROAD_CACHE_COUNTIES } from './roadCacheConfig.js';
 
 const PORT = Number(process.env.PORT ?? 4242);
-const FACING_JOB_DELAY_MS = Number(process.env.FACING_JOB_DELAY_MS ?? 800);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
 const db = openDatabase();
 const app = express();
@@ -136,28 +134,6 @@ app.post('/api/commutes/refresh', async (_req, res, next) => {
   }
 });
 
-app.post('/api/facing/refresh', async (_req, res, next) => {
-  try {
-    const rows = listListings(db, {});
-    const job = startListingJob('facing', rows.map((row) => row.id), 'Estimating facing from named streets');
-    res.json({ job, refreshed: 0 });
-  } catch (error) {
-    next(error);
-  }
-});
-
-app.post('/api/facing/retry-unknown', async (_req, res, next) => {
-  try {
-    const rows = listListings(db, {})
-      .filter(needsFacingRetry)
-      .sort((a, b) => retryPriority(a) - retryPriority(b));
-    const job = startListingJob('facing', rows.map((row) => row.id), 'Retrying unknown facing checks');
-    res.json({ job, refreshed: 0 });
-  } catch (error) {
-    next(error);
-  }
-});
-
 app.post('/api/road-cache/refresh', async (_req, res, next) => {
   try {
     const job = startRoadCacheRefreshJob();
@@ -249,10 +225,7 @@ async function runListingJob(job, ids) {
       const row = listListings(db, {}).find((item) => item.id === id);
       if (row) {
         job.message = `Checking ${row.address || 'listing ' + id}`;
-        if (job.type === 'facing') {
-          const facing = await classifyFacing(db, row);
-          updateFacing(db, id, facing);
-        } else if (job.type === 'county_facing') {
+        if (job.type === 'county_facing') {
           const facing = classifyListingFromRoadCache(row, countyRoadsByCounty);
           updateFacing(db, id, facing);
         } else {
@@ -265,10 +238,6 @@ async function runListingJob(job, ids) {
       job.message = error.message || `${job.type} check failed`;
     } finally {
       job.completed += 1;
-    }
-
-    if (job.type === 'facing' && !job.cancelled && job.completed < ids.length) {
-      await delay(FACING_JOB_DELAY_MS);
     }
   }
 
@@ -363,27 +332,9 @@ function publicJob(job) {
   return rest;
 }
 
-function needsFacingRetry(row) {
-  return row.facing_status === null || row.facing_status === undefined || row.facing_status === '' || row.facing_status === 'unknown';
-}
-
 function needsCountyRoadFacing(row) {
   if (row.facing_review_status === 'needs_review') return true;
   return row.facing_status === null || row.facing_status === undefined || row.facing_status === '' || row.facing_status === 'unknown';
-}
-
-function retryPriority(row) {
-  const reason = row.facing_reason ?? '';
-  if (reason.includes('map_lookup_failed')) return 0;
-  if (!reason) return 1;
-  if (reason.includes('missing_coordinates') || reason.includes('not_a_street_address')) return 3;
-  return 2;
-}
-
-function delay(ms) {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 }
 
 app.listen(PORT, '127.0.0.1', () => {
