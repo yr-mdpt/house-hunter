@@ -36,7 +36,7 @@ type Listing = {
   commute_status: 'within_30_min' | 'outside_30_min' | 'unknown_commute'
   facing_degrees: number | null
   facing_label: string
-  facing_status: 'ok' | 'not_ok' | 'unknown'
+  facing_status: 'known' | 'unknown'
   facing_confidence: string
   facing_reason: string
   facing_review_status: 'unreviewed' | 'needs_review' | 'reviewed'
@@ -58,7 +58,7 @@ type Notification = {
 type Stats = {
   total: number
   within: number
-  facingOk: number
+  facingKnown: number
   facingNeedsReview: number
   unread: number
   sources: number
@@ -99,7 +99,7 @@ type RoadCacheStatus = {
 const emptyStats: Stats = {
   total: 0,
   within: 0,
-  facingOk: 0,
+  facingKnown: 0,
   facingNeedsReview: 0,
   unread: 0,
   sources: 0,
@@ -277,7 +277,7 @@ function App() {
       <section className="metrics" aria-label="Listing metrics">
         <Metric icon={<Database size={20} />} label="Listings" value={stats.total} />
         <Metric icon={<Clock3 size={20} />} label="Within 30 min" value={stats.within} />
-        <Metric icon={<CheckCircle2 size={20} />} label="Facing OK" value={stats.facingOk} />
+        <Metric icon={<CheckCircle2 size={20} />} label="Facing Known" value={stats.facingKnown} />
         <Metric icon={<CheckCircle2 size={20} />} label="Needs Review" value={stats.facingNeedsReview} />
         <Metric icon={<Bell size={20} />} label="Unread alerts" value={stats.unread} />
         <Metric icon={<Database size={20} />} label="Road Cache" value={`${stats.roadCacheReady}/${stats.roadCacheTotal}`} />
@@ -410,9 +410,15 @@ function App() {
                 ))}
               </select>
               <select value={facingFilter} onChange={(event) => setFacingFilter(event.target.value)}>
-                <option value="all">All facing states</option>
-                <option value="ok">Facing OK</option>
-                <option value="not_ok">Facing NOT OK</option>
+                <option value="all">All facings</option>
+                <option value="N">North</option>
+                <option value="NE">Northeast</option>
+                <option value="E">East</option>
+                <option value="SE">Southeast</option>
+                <option value="S">South</option>
+                <option value="SW">Southwest</option>
+                <option value="W">West</option>
+                <option value="NW">Northwest</option>
                 <option value="unknown">Facing unknown</option>
                 <option value="needs_review">Needs review</option>
               </select>
@@ -421,7 +427,7 @@ function App() {
                 <option value="distance_asc">Distance</option>
                 <option value="price_asc">Price low to high</option>
                 <option value="price_desc">Price high to low</option>
-                <option value="facing_ok">Facing OK first</option>
+                <option value="facing_direction">Facing direction</option>
                 <option value="updated_desc">Recently updated</option>
               </select>
             </div>
@@ -527,7 +533,7 @@ function ListingRow({ listing }: { listing: Listing }) {
         <div>
           <div className="badges">
             <span className={`badge ${listing.commute_status}`}>{commuteLabel(listing)}</span>
-            <span className={`badge ${listing.facing_review_status === 'needs_review' ? 'facing-review' : `facing-${listing.facing_status}`}`}>{facingLabel(listing)}</span>
+            <span className={`badge ${facingBadgeClass(listing)}`}>{facingLabel(listing)}</span>
             <span className="badge">{formatType(listing.listing_type)}</span>
             <span className="badge">{listing.status || 'active'}</span>
           </div>
@@ -618,10 +624,15 @@ function distanceLabel(value: number | null) {
 }
 
 function facingLabel(listing: Listing) {
-  if (listing.facing_review_status === 'needs_review') return `Review facing ${listing.facing_label || ''}`.trim()
-  if (listing.facing_status === 'ok') return `Facing OK ${listing.facing_label || ''}`.trim()
-  if (listing.facing_status === 'not_ok') return `Facing NOT OK ${listing.facing_label || ''}`.trim()
+  if (listing.facing_review_status === 'needs_review' && listing.facing_label) return `Facing ${listing.facing_label}, review`
+  if (listing.facing_label) return `Facing ${listing.facing_label}`
+  if (listing.facing_review_status === 'needs_review') return 'Facing needs review'
   return 'facing unknown'
+}
+
+function facingBadgeClass(listing: Listing) {
+  if (listing.facing_review_status === 'needs_review') return 'facing-review'
+  return listing.facing_label ? 'facing-known' : 'facing-unknown'
 }
 
 function facingDetail(listing: Listing) {

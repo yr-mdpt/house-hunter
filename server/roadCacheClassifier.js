@@ -1,4 +1,5 @@
-import { compassLabel, isFacingOk, streetNameFromAddress } from './facing.js';
+import { streetNameFromAddress } from './facing.js';
+import { compassLabel, normalizeDegrees } from './facingLabels.js';
 import { bearingDegrees, findNamedRoad } from './gisFacing.js';
 import { normalizeText } from './normalize.js';
 import { ROAD_CACHE_COUNTIES } from './roadCacheConfig.js';
@@ -61,7 +62,7 @@ export function classifyListingFromRoadCache(listing, roadsByCounty) {
   return {
     facing_degrees: degrees,
     facing_label: compassLabel(degrees),
-    facing_status: isFacingOk(degrees) ? 'ok' : 'not_ok',
+    facing_status: 'known',
     facing_confidence: 'high',
     facing_source: 'estimated_named_street_county_roads',
     facing_reason: reasonText(streetName, 'auto_county_roads_high_confidence', best),
@@ -90,7 +91,7 @@ function reviewFacing(streetName, roadMatch, degrees) {
   return {
     facing_degrees: degrees,
     facing_label: compassLabel(degrees),
-    facing_status: 'unknown',
+    facing_status: 'known',
     facing_confidence: confidence,
     facing_source: 'estimated_named_street_county_roads',
     facing_reason: reasonText(streetName, 'low_confidence_needs_review', roadMatch),
@@ -118,10 +119,6 @@ function hasStreetNumber(address) {
 
 function isLikelyNonStreetName(streetName) {
   return /\b(plan|model|community|homesite|lot)\b/i.test(streetName);
-}
-
-function normalizeDegrees(degrees) {
-  return ((degrees % 360) + 360) % 360;
 }
 
 function unknownFacing(reason, streetName = '') {

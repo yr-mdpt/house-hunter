@@ -1,4 +1,5 @@
-import { compassLabel, isFacingOk, streetNameFromAddress } from './facing.js';
+import { streetNameFromAddress } from './facing.js';
+import { compassLabel, normalizeDegrees } from './facingLabels.js';
 import { normalizeText } from './normalize.js';
 
 const MAX_BUILDING_DISTANCE_METERS = 120;
@@ -33,7 +34,7 @@ export function classifyGisFacing(listing, gisData) {
   const degrees = Math.round(normalizeDegrees(bearingDegrees(building.origin.lat, building.origin.lon, road.nearest.lat, road.nearest.lon)));
   const confidence = confidenceFor(building, road);
   return {
-    gis_status: isFacingOk(degrees) ? 'ok' : 'not_ok',
+    gis_status: 'known',
     facing_degrees: degrees,
     facing_label: compassLabel(degrees),
     confidence,
@@ -348,10 +349,6 @@ function hasStreetNumber(address) {
 
 function isLikelyNonStreetName(streetName) {
   return /\b(plan|model|community|homesite|lot)\b/i.test(streetName);
-}
-
-function normalizeDegrees(degrees) {
-  return ((degrees % 360) + 360) % 360;
 }
 
 function unknownResult(reason, streetName = '', details = {}) {

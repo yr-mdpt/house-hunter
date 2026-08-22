@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { COMMUTE_LIMIT_MINUTES } from './config.js';
 import { ROAD_CACHE_COUNTIES } from './roadCacheConfig.js';
 import { classifyCityArea } from './cityArea.js';
+import { FACING_DIRECTIONS, compassLabel } from './facingLabels.js';
 
 const DATA_DIR = join(process.cwd(), 'data');
 const DB_PATH = process.env.HOUSE_HUNTER_DB ?? join(DATA_DIR, 'house-hunter.sqlite');
@@ -123,12 +124,13 @@ export function migrate(db) {
   ensureColumn(db, 'road_cache_status', 'pages_downloaded', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'road_cache_status', 'last_error', 'TEXT');
   backfillCityAreas(db);
+  backfillFacingLabels(db);
 }
 
 export function getStats(db) {
   const total = db.prepare('SELECT COUNT(*) AS count FROM listings').get().count;
   const within = db.prepare("SELECT COUNT(*) AS count FROM listings WHERE commute_status = 'within_30_min'").get().count;
-  const facingOk = db.prepare("SELECT COUNT(*) AS count FROM listings WHERE facing_status = 'ok'").get().count;
+  const facingKnown = db.prepare("SELECT COUNT(*) AS count FROM listings WHERE facing_label IS NOT NULL AND facing_label != ''").get().count;
   const facingNeedsReview = db.prepare("SELECT COUNT(*) AS count FROM listings WHERE facing_review_status = 'needs_review'").get().count;
   const unread = db.prepare('SELECT COUNT(*) AS count FROM notifications WHERE read_at IS NULL').get().count;
   const sources = db.prepare("SELECT COUNT(DISTINCT json_extract(value, '$.source')) AS count FROM listings, json_each(source_refs)").get().count;
@@ -137,7 +139,7 @@ export function getStats(db) {
   return {
     total,
     within,
-    facingOk,
+    facingKnown,
     facingNeedsReview,
     unread,
     sources,
@@ -164,13 +166,16 @@ export function listListings(db, params = {}) {
     values.$city = cityFilter.value;
   }
   if (params.facing && params.facing !== 'all') {
+    const direction = String(params.facing).toUpperCase();
     if (params.facing === 'needs_review') {
       clauses.push("facing_review_status = 'needs_review'");
     } else if (params.facing === 'unknown') {
-      clauses.push("facing_status = 'unknown' AND COALESCE(facing_review_status, 'unreviewed') != 'needs_review'");
+      clauses.push("(facing_label IS NULL OR facing_label = '')");
+    } else if (FACING_DIRECTIONS.includes(direction)) {
+      clauses.push('facing_label = $facing_label');
+      values.$facing_label = direction;
     } else {
-      clauses.push('facing_status = $facing');
-      values.$facing = params.facing;
+      clauses.push('1 = 0');
     }
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
@@ -481,11 +486,11 @@ export function updateFacing(db, id, result) {
   `).run(
     result.facing_degrees ?? null,
     result.facing_label ?? '',
-    result.facing_status ?? 'unknown',
+    result.facing_label ? 'known' : 'unknown',
     result.facing_confidence ?? 'unknown',
     result.facing_source ?? '',
     result.facing_reason ?? '',
-    result.facing_review_status ?? (result.facing_status === 'unknown' ? 'unreviewed' : 'reviewed'),
+    result.facing_review_status ?? (result.facing_label ? 'reviewed' : 'unreviewed'),
     id,
   );
 }
@@ -586,6 +591,23 @@ function backfillCityAreas(db) {
   }
 }
 
+function backfillFacingLabels(db) {
+  const rows = db.prepare(`
+    SELECT id, facing_degrees
+    FROM listings
+    WHERE facing_degrees IS NOT NULL
+  `).all();
+  const updateKnown = db.prepare("UPDATE listings SET facing_label = ?, facing_status = 'known' WHERE id = ?");
+  for (const row of rows) {
+    updateKnown.run(compassLabel(row.facing_degrees), row.id);
+  }
+  db.prepare(`
+    UPDATE listings
+    SET facing_status = 'unknown'
+    WHERE facing_degrees IS NULL OR facing_label IS NULL OR facing_label = ''
+  `).run();
+}
+
 function parseCityFilter(value) {
   if (value.startsWith('city:')) return { column: 'city', value: value.slice(5) };
   if (value.startsWith('area:')) return { column: 'city_area', value: value.slice(5) };
@@ -618,8 +640,19 @@ function orderByFor(sort = 'commute_asc') {
       COALESCE(commute_minutes, 9999) ASC,
       updated_at DESC
     `,
-    facing_ok: `
-      CASE facing_status WHEN 'ok' THEN 0 WHEN 'unknown' THEN 1 ELSE 2 END,
+    facing_direction: `
+      CASE WHEN facing_label IS NULL OR facing_label = '' THEN 1 ELSE 0 END,
+      CASE facing_label
+        WHEN 'N' THEN 1
+        WHEN 'NE' THEN 2
+        WHEN 'E' THEN 3
+        WHEN 'SE' THEN 4
+        WHEN 'S' THEN 5
+        WHEN 'SW' THEN 6
+        WHEN 'W' THEN 7
+        WHEN 'NW' THEN 8
+        ELSE 9
+      END,
       COALESCE(commute_minutes, 9999) ASC,
       updated_at DESC
     `,

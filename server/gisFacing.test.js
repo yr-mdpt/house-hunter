@@ -39,7 +39,7 @@ test('matches named roads across common suffix differences', () => {
   assert.equal(road.match_quality, 3);
 });
 
-test('classifies south-facing GIS result as not OK', () => {
+test('classifies south-facing GIS result as known direction', () => {
   const result = classifyGisFacing({
     address: '1417 Merrion Ave',
     latitude: 35.0005,
@@ -56,12 +56,12 @@ test('classifies south-facing GIS result as not OK', () => {
     }],
   });
 
-  assert.equal(result.gis_status, 'not_ok');
+  assert.equal(result.gis_status, 'known');
   assert.equal(result.facing_label, 'S');
   assert.equal(result.confidence, 'high');
 });
 
-test('classifies northeast-facing GIS result as OK', () => {
+test('classifies northeast-facing GIS result as known direction', () => {
   const result = classifyGisFacing({
     address: '720 Keystone Park Dr',
     latitude: 35.0005,
@@ -78,7 +78,7 @@ test('classifies northeast-facing GIS result as OK', () => {
     }],
   });
 
-  assert.equal(result.gis_status, 'ok');
+  assert.equal(result.gis_status, 'known');
   assert.equal(result.facing_label, 'NE');
 });
 

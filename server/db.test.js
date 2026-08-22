@@ -135,18 +135,18 @@ test('backfills city area for existing Raleigh rows on migration', () => {
   assert.equal(listListings(reopened, { city: 'area:Raleigh NE' }).length, 1);
 });
 
-test('counts and sorts facing OK listings', () => {
+test('counts known facing labels and filters by direction', () => {
   const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
   const db = openDatabase(join(dir, 'test.sqlite'));
 
-  const ok = upsertListing(db, compactListing({
+  const northeast = upsertListing(db, compactListing({
     source: 'redfin_export',
     address: '720 Keystone Park Dr',
     city: 'Morrisville',
     state: 'NC',
     price: 410000,
   }));
-  const notOk = upsertListing(db, compactListing({
+  const south = upsertListing(db, compactListing({
     source: 'redfin_export',
     address: '1417 Merrion Ave',
     city: 'Durham',
@@ -154,23 +154,26 @@ test('counts and sorts facing OK listings', () => {
     price: 390000,
   }));
 
-  updateFacing(db, ok.id, {
+  updateFacing(db, northeast.id, {
     facing_degrees: 45,
     facing_label: 'NE',
-    facing_status: 'ok',
+    facing_status: 'known',
     facing_confidence: 'high',
     facing_source: 'test',
     facing_reason: 'test road',
   });
-  updateFacing(db, notOk.id, {
+  updateFacing(db, south.id, {
     facing_degrees: 180,
     facing_label: 'S',
-    facing_status: 'not_ok',
+    facing_status: 'known',
     facing_confidence: 'high',
     facing_source: 'test',
     facing_reason: 'test road',
   });
 
-  assert.equal(getStats(db).facingOk, 1);
-  assert.equal(listListings(db, { sort: 'facing_ok' })[0].address, '720 Keystone Park Dr');
+  assert.equal(getStats(db).facingKnown, 2);
+  assert.equal(listListings(db, { facing: 'NE' }).length, 1);
+  assert.equal(listListings(db, { facing: 'S' }).length, 1);
+  assert.equal(listListings(db, { facing: 'unknown' }).length, 0);
+  assert.equal(listListings(db, { sort: 'facing_direction' })[0].address, '720 Keystone Park Dr');
 });

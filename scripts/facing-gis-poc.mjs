@@ -235,7 +235,7 @@ function selectSampleListings(listings, sampleSize) {
   add(listings.filter((listing) => /merrion|keystone park|cathedral comb|nova|deercroft/i.test(listing.address ?? '')));
   add(listings.filter((listing) => String(listing.facing_reason ?? '').includes('map_lookup_failed')));
   add(listings.filter((listing) => String(listing.facing_reason ?? '').includes('named_street_not_found')));
-  add(listings.filter((listing) => listing.facing_status === 'ok' || listing.facing_status === 'not_ok'));
+  add(listings.filter((listing) => listing.facing_label));
   add(listings);
   return selected.slice(0, sampleSize);
 }
@@ -279,8 +279,8 @@ function bboxForListings(listings) {
 }
 
 function currentFacingLabel(listing) {
-  if (listing.facing_status === 'ok' || listing.facing_status === 'not_ok') {
-    return `${listing.facing_status} ${listing.facing_degrees ?? ''} ${listing.facing_label ?? ''}`.trim();
+  if (listing.facing_label) {
+    return `known ${listing.facing_degrees ?? ''} ${listing.facing_label ?? ''}`.trim();
   }
   return listing.facing_reason || 'unknown';
 }

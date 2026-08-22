@@ -1,8 +1,7 @@
 import { getGeoCache, setGeoCache } from './db.js';
+import { compassLabel, normalizeDegrees } from './facingLabels.js';
 import { normalizeText } from './normalize.js';
 
-const OK_MIN_DEGREES = 300;
-const OK_MAX_DEGREES = 110;
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 const INITIAL_RADIUS_METERS = 260;
 const FALLBACK_RADIUS_METERS = 700;
@@ -30,22 +29,11 @@ export async function classifyFacing(db, listing) {
   return {
     facing_degrees: rounded,
     facing_label: compassLabel(rounded),
-    facing_status: isFacingOk(rounded) ? 'ok' : 'not_ok',
+    facing_status: 'known',
     facing_confidence: confidenceFor(nearest.distance_meters, road.match_quality),
     facing_source: 'estimated_named_street_osm',
     facing_reason: `${streetName}; ${Math.round(nearest.distance_meters)}m to matched road`,
   };
-}
-
-export function isFacingOk(degrees) {
-  const normalized = normalizeDegrees(degrees);
-  return normalized >= OK_MIN_DEGREES || normalized <= OK_MAX_DEGREES;
-}
-
-export function compassLabel(degrees) {
-  const labels = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  const index = Math.round(normalizeDegrees(degrees) / 45) % 8;
-  return labels[index];
 }
 
 export function streetNameFromAddress(address) {
@@ -239,10 +227,6 @@ function listingCoords(listing) {
   const lat = Number(listing.latitude);
   const lon = Number(listing.longitude);
   return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
-}
-
-function normalizeDegrees(degrees) {
-  return ((degrees % 360) + 360) % 360;
 }
 
 function hasStreetNumber(address) {

@@ -87,7 +87,7 @@ test('marks ArcGIS refresh partial when a later page fails', async () => {
   }
 });
 
-test('county road cache classifier only auto-saves high confidence matches', () => {
+test('county road cache classifier only auto-saves high confidence direction matches', () => {
   const roads = new Map([[
     'Durham',
     [{
@@ -109,7 +109,7 @@ test('county road cache classifier only auto-saves high confidence matches', () 
   };
   const result = classifyListingFromRoadCache(listing, roads);
 
-  assert.equal(result.facing_status, 'not_ok');
+  assert.equal(result.facing_status, 'known');
   assert.equal(result.facing_label, 'S');
   assert.equal(result.facing_confidence, 'high');
   assert.equal(result.facing_review_status, 'reviewed');
@@ -119,7 +119,7 @@ test('county road cache classifier only auto-saves high confidence matches', () 
     ...listing,
     longitude: -78.916,
   }, roads);
-  assert.equal(review.facing_status, 'unknown');
+  assert.equal(review.facing_status, 'known');
   assert.equal(review.facing_review_status, 'needs_review');
   assert.match(review.facing_reason, /low_confidence_needs_review/);
 });

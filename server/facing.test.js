@@ -1,25 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDatabase } from './db.js';
-import { classifyFacing, compassLabel, isFacingOk, nearestPointOnRoad, streetNameFromAddress } from './facing.js';
+import { classifyFacing, nearestPointOnRoad, streetNameFromAddress } from './facing.js';
+import { compassLabel } from './facingLabels.js';
 
-test('applies the custom 300 through 110 degree OK facing rule', () => {
-  assert.equal(isFacingOk(0), true);
-  assert.equal(isFacingOk(45), true);
-  assert.equal(isFacingOk(110), true);
-  assert.equal(isFacingOk(111), false);
-  assert.equal(isFacingOk(180), false);
-  assert.equal(isFacingOk(299), false);
-  assert.equal(isFacingOk(300), true);
-  assert.equal(isFacingOk(315), true);
-});
-
-test('converts degrees to compass labels', () => {
+test('converts degrees to project compass labels', () => {
   assert.equal(compassLabel(0), 'N');
+  assert.equal(compassLabel(22.4), 'N');
+  assert.equal(compassLabel(22.5), 'NE');
   assert.equal(compassLabel(44), 'NE');
   assert.equal(compassLabel(90), 'E');
+  assert.equal(compassLabel(110), 'E');
+  assert.equal(compassLabel(111), 'SE');
   assert.equal(compassLabel(181), 'S');
+  assert.equal(compassLabel(299), 'W');
+  assert.equal(compassLabel(300), 'NW');
   assert.equal(compassLabel(315), 'NW');
+  assert.equal(compassLabel(337.5), 'N');
 });
 
 test('extracts named street from listing address', () => {
@@ -109,6 +106,6 @@ test('matches common street suffix differences without using a nearest random st
     longitude: -78.929846,
   });
 
-  assert.notEqual(result.facing_status, 'unknown');
+  assert.equal(result.facing_status, 'known');
   assert.match(result.facing_reason, /^Cathedral Comb Dr; /);
 });

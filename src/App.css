@@ -414,14 +414,9 @@ textarea {
   color: #6f5314;
 }
 
-.badge.facing-ok {
-  background: #dff3e7;
-  color: #17623a;
-}
-
-.badge.facing-not_ok {
-  background: #f7e1df;
-  color: #8b2e22;
+.badge.facing-known {
+  background: #e6f0f2;
+  color: #20545d;
 }
 
 .badge.facing-unknown {
