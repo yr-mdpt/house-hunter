@@ -11,6 +11,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Star,
   Upload,
 } from 'lucide-react'
 import './App.css'
@@ -40,6 +41,7 @@ type Listing = {
   facing_confidence: string
   facing_reason: string
   facing_review_status: 'unreviewed' | 'needs_review' | 'reviewed'
+  is_favorite: boolean
   url: string
   notes: string
   source_refs: Array<{ source: string; label: string; url: string }>
@@ -276,6 +278,25 @@ function App() {
     })
   }
 
+  async function toggleFavorite(listing: Listing) {
+    const nextFavorite = !listing.is_favorite
+    setListings((current) => current.map((item) => (
+      item.id === listing.id ? { ...item, is_favorite: nextFavorite } : item
+    )))
+    try {
+      const result = await patchJson(`/api/listings/${listing.id}/favorite`, { favorite: nextFavorite })
+      const saved = (result as { listing?: Listing }).listing
+      if (saved) {
+        setListings((current) => current.map((item) => (item.id === saved.id ? saved : item)))
+      }
+    } catch (error) {
+      setListings((current) => current.map((item) => (
+        item.id === listing.id ? { ...item, is_favorite: listing.is_favorite } : item
+      )))
+      setMessage(error instanceof Error ? error.message : 'Favorite update failed')
+    }
+  }
+
   return (
     <main className="shell">
       <header className="topbar">
@@ -468,7 +489,14 @@ function App() {
           </div>
 
           <div className="listing-list">
-            {listings.map((listing) => <ListingRow key={listing.id} listing={listing} />)}
+            {listings.map((listing) => (
+              <ListingRow
+                key={listing.id}
+                listing={listing}
+                disabled={isWorking}
+                onToggleFavorite={toggleFavorite}
+              />
+            ))}
             {listings.length === 0 && (
               <div className="empty">
                 <Database size={22} />
@@ -629,7 +657,15 @@ function JobProgress({ job }: { job: Job }) {
   )
 }
 
-function ListingRow({ listing }: { listing: Listing }) {
+function ListingRow({
+  listing,
+  disabled,
+  onToggleFavorite,
+}: {
+  listing: Listing
+  disabled: boolean
+  onToggleFavorite: (listing: Listing) => void
+}) {
   return (
     <article className="listing">
       <div className="listing-main">
@@ -645,7 +681,20 @@ function ListingRow({ listing }: { listing: Listing }) {
             {[listing.city_area || listing.city, listing.state, listing.zip].filter(Boolean).join(', ')}
           </p>
         </div>
-        <div className="price">{formatMoney(listing.price)}</div>
+        <div className="listing-side">
+          <button
+            className={`icon-button favorite-button ${listing.is_favorite ? 'selected' : ''}`}
+            type="button"
+            title={listing.is_favorite ? 'Remove favorite' : 'Add favorite'}
+            aria-pressed={listing.is_favorite}
+            disabled={disabled}
+            onClick={() => onToggleFavorite(listing)}
+          >
+            <Star size={18} fill={listing.is_favorite ? 'currentColor' : 'none'} />
+            <span className="sr-only">{listing.is_favorite ? 'Remove favorite' : 'Add favorite'}</span>
+          </button>
+          <div className="price">{formatMoney(listing.price)}</div>
+        </div>
       </div>
       <div className="facts">
         <span>{formatFact(listing.beds, 'bd')}</span>
@@ -677,6 +726,15 @@ async function postJson(path: string, body: unknown) {
 
 async function postForm(path: string, body: FormData) {
   const response = await fetch(path, { method: 'POST', body })
+  return readResponse(response)
+}
+
+async function patchJson(path: string, body: unknown) {
+  const response = await fetch(path, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   return readResponse(response)
 }
 

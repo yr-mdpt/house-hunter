@@ -51,6 +51,7 @@ export function migrate(db) {
       facing_source TEXT,
       facing_reason TEXT,
       facing_review_status TEXT DEFAULT 'unreviewed',
+      is_favorite INTEGER NOT NULL DEFAULT 0,
       photo_url TEXT,
       notes TEXT,
       source_refs TEXT NOT NULL DEFAULT '[]',
@@ -118,6 +119,7 @@ export function migrate(db) {
   ensureColumn(db, 'listings', 'facing_source', 'TEXT');
   ensureColumn(db, 'listings', 'facing_reason', 'TEXT');
   ensureColumn(db, 'listings', 'facing_review_status', "TEXT DEFAULT 'unreviewed'");
+  ensureColumn(db, 'listings', 'is_favorite', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'road_cache_status', 'source_key', 'TEXT');
   ensureColumn(db, 'road_cache_status', 'source_url', 'TEXT');
   ensureColumn(db, 'road_cache_status', 'records_downloaded', 'INTEGER NOT NULL DEFAULT 0');
@@ -503,6 +505,14 @@ export function updateFacing(db, id, result) {
   );
 }
 
+export function setListingFavorite(db, id, isFavorite) {
+  return db.prepare(`
+    UPDATE listings
+    SET is_favorite = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `).run(isFavorite ? 1 : 0, id).changes;
+}
+
 function mergeListing(previous, incoming, sourceRef) {
   const sourceRefs = previous.source_refs ?? [];
   if (!sourceRefs.some((ref) => ref.source === sourceRef.source && ref.url === sourceRef.url)) {
@@ -548,6 +558,7 @@ function decodeListing(row) {
   return {
     ...row,
     city_area: row.city_area ?? null,
+    is_favorite: row.is_favorite === 1,
     facing_review_status: row.facing_review_status ?? 'unreviewed',
     source_refs: safeJson(row.source_refs, []),
     raw_payloads: safeJson(row.raw_payloads, []),

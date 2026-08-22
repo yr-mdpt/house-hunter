@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtempSync } from 'node:fs';
-import { openDatabase, upsertListing, listListings, listCities, listNotifications, clearNotifications, updateCommute, updateFacing, getStats } from './db.js';
+import { openDatabase, upsertListing, listListings, listCities, listNotifications, clearNotifications, updateCommute, updateFacing, setListingFavorite, getStats } from './db.js';
 import { classifyCityArea } from './cityArea.js';
 import { compactListing } from './normalize.js';
 
@@ -188,4 +188,23 @@ test('counts known facing labels and filters by direction', () => {
   assert.equal(listListings(db, { city: 'city:Durham', facing: ['NE', 'S'] }).length, 1);
   assert.equal(listListings(db, { facing: ['bad-value'] }).length, 0);
   assert.equal(listListings(db, { sort: 'facing_direction' })[0].address, '720 Keystone Park Dr');
+});
+
+test('persists listing favorites', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
+  const db = openDatabase(join(dir, 'test.sqlite'));
+
+  const listing = upsertListing(db, compactListing({
+    source: 'redfin_export',
+    address: '500 Favorite Way',
+    city: 'Durham',
+    state: 'NC',
+  }));
+
+  assert.equal(listListings(db)[0].is_favorite, false);
+  assert.equal(setListingFavorite(db, listing.id, true), 1);
+  assert.equal(listListings(db)[0].is_favorite, true);
+  assert.equal(setListingFavorite(db, listing.id, false), 1);
+  assert.equal(listListings(db)[0].is_favorite, false);
+  assert.equal(setListingFavorite(db, 999999, true), 0);
 });

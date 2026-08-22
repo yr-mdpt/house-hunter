@@ -11,6 +11,7 @@ import {
   upsertListing,
   updateCommute,
   updateFacing,
+  setListingFavorite,
   listRoadCacheStatuses,
   upsertRoadCacheStatus,
   replaceRoadSegmentsForCounty,
@@ -49,6 +50,15 @@ app.get('/api/listings', (req, res) => {
     facing: req.query.facing,
     sort: req.query.sort,
   }));
+});
+
+app.patch('/api/listings/:id/favorite', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
+  const changes = setListingFavorite(db, id, req.body?.favorite === true);
+  if (changes === 0) return res.status(404).json({ error: 'Listing not found' });
+  const listing = listListings(db, {}).find((item) => item.id === id);
+  res.json({ ok: true, listing });
 });
 
 app.get('/api/cities', (_req, res) => {
