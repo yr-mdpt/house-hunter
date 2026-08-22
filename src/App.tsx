@@ -74,6 +74,12 @@ type CityOption = {
   count: number
 }
 
+type MultiSelectOption = {
+  value: string
+  label: string
+  count?: number
+}
+
 type Job = {
   id?: number
   type?: string
@@ -108,6 +114,19 @@ const emptyStats: Stats = {
   cachedRoads: 0,
 }
 
+const facingOptions: MultiSelectOption[] = [
+  { value: 'N', label: 'North' },
+  { value: 'NE', label: 'Northeast' },
+  { value: 'E', label: 'East' },
+  { value: 'SE', label: 'Southeast' },
+  { value: 'S', label: 'South' },
+  { value: 'SW', label: 'Southwest' },
+  { value: 'W', label: 'West' },
+  { value: 'NW', label: 'Northwest' },
+  { value: 'unknown', label: 'Facing unknown' },
+  { value: 'needs_review', label: 'Needs review' },
+]
+
 function App() {
   const [listings, setListings] = useState<Listing[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -117,8 +136,8 @@ function App() {
   const [job, setJob] = useState<Job>({ status: 'idle' })
   const previousJobStatus = useRef<Job['status']>('idle')
   const [commuteFilter, setCommuteFilter] = useState('all')
-  const [cityFilter, setCityFilter] = useState('all')
-  const [facingFilter, setFacingFilter] = useState('all')
+  const [cityFilter, setCityFilter] = useState<string[]>([])
+  const [facingFilter, setFacingFilter] = useState<string[]>([])
   const [sort, setSort] = useState('commute_asc')
   const [query, setQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -140,13 +159,21 @@ function App() {
     () => notifications.slice(0, 6),
     [notifications],
   )
+  const cityOptions = useMemo(
+    () => cities.map((item) => ({
+      value: item.value ?? item.city,
+      label: item.label ?? item.city,
+      count: item.count,
+    })),
+    [cities],
+  )
   const isWorking = busy || job.status === 'running'
 
   const refresh = useCallback(async () => {
     const params = new URLSearchParams()
     if (commuteFilter !== 'all') params.set('commute', commuteFilter)
-    if (cityFilter !== 'all') params.set('city', cityFilter)
-    if (facingFilter !== 'all') params.set('facing', facingFilter)
+    for (const city of cityFilter) params.append('city', city)
+    for (const facing of facingFilter) params.append('facing', facing)
     if (sort !== 'commute_asc') params.set('sort', sort)
     if (query) params.set('query', query)
     const [listingRes, statsRes, notificationRes, citiesRes, roadCacheRes] = await Promise.all([
@@ -417,25 +444,18 @@ function App() {
                 <option value="outside_30_min">Outside 30 min</option>
                 <option value="unknown_commute">Unknown commute</option>
               </select>
-              <select value={cityFilter} onChange={(event) => setCityFilter(event.target.value)}>
-                <option value="all">All cities</option>
-                {cities.map((item) => (
-                  <option key={item.value ?? item.city} value={item.value ?? item.city}>{item.label ?? item.city} ({item.count})</option>
-                ))}
-              </select>
-              <select value={facingFilter} onChange={(event) => setFacingFilter(event.target.value)}>
-                <option value="all">All facings</option>
-                <option value="N">North</option>
-                <option value="NE">Northeast</option>
-                <option value="E">East</option>
-                <option value="SE">Southeast</option>
-                <option value="S">South</option>
-                <option value="SW">Southwest</option>
-                <option value="W">West</option>
-                <option value="NW">Northwest</option>
-                <option value="unknown">Facing unknown</option>
-                <option value="needs_review">Needs review</option>
-              </select>
+              <MultiSelectFilter
+                label="Cities"
+                options={cityOptions}
+                selected={cityFilter}
+                onChange={setCityFilter}
+              />
+              <MultiSelectFilter
+                label="Facings"
+                options={facingOptions}
+                selected={facingFilter}
+                onChange={setFacingFilter}
+              />
               <select value={sort} onChange={(event) => setSort(event.target.value)}>
                 <option value="commute_asc">Drive time</option>
                 <option value="distance_asc">Distance</option>
@@ -503,6 +523,60 @@ function Metric({ icon, label, value }: { icon: ReactNode; label: string; value:
   )
 }
 
+function MultiSelectFilter({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string
+  options: MultiSelectOption[]
+  selected: string[]
+  onChange: (values: string[]) => void
+}) {
+  function toggle(value: string) {
+    onChange(
+      selected.includes(value)
+        ? selected.filter((item) => item !== value)
+        : [...selected, value],
+    )
+  }
+
+  return (
+    <details className="multi-filter">
+      <summary>{multiSelectSummary(label, selected, options)}</summary>
+      <div className="multi-filter-menu">
+        <div className="multi-filter-header">
+          <strong>{label}</strong>
+          <button
+            className="quiet compact"
+            type="button"
+            disabled={selected.length === 0}
+            onClick={() => onChange([])}
+          >
+            Clear
+          </button>
+        </div>
+        <div className="multi-filter-options">
+          {options.map((option) => (
+            <label className="multi-filter-option" key={option.value}>
+              <input
+                type="checkbox"
+                checked={selected.includes(option.value)}
+                onChange={() => toggle(option.value)}
+              />
+              <span>
+                {option.label}
+                {option.count !== undefined && ` (${option.count})`}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </details>
+  )
+}
+
 function RoadCachePanel({ statuses, cachedRoads }: { statuses: RoadCacheStatus[]; cachedRoads: number }) {
   return (
     <section className="road-cache" aria-label="Road cache status">
@@ -519,6 +593,14 @@ function RoadCachePanel({ statuses, cachedRoads }: { statuses: RoadCacheStatus[]
       </div>
     </section>
   )
+}
+
+function multiSelectSummary(label: string, selected: string[], options: MultiSelectOption[]) {
+  if (selected.length === 0) return `All ${label.toLowerCase()}`
+  if (selected.length === 1) {
+    return options.find((option) => option.value === selected[0])?.label ?? selected[0]
+  }
+  return `${label}: ${selected.length} selected`
 }
 
 function JobProgress({ job }: { job: Job }) {

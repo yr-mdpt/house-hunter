@@ -67,6 +67,7 @@ test('filters by city and sorts by price and commute distance', () => {
   assert.deepEqual(listCities(db).map((item) => item.label), ['Apex', 'Durham']);
   assert.equal(listListings(db, { city: 'Apex' }).length, 1);
   assert.equal(listListings(db, { city: 'city:Apex' }).length, 1);
+  assert.equal(listListings(db, { city: ['city:Apex', 'city:Durham'] }).length, 2);
   assert.equal(listListings(db, { sort: 'price_asc' })[0].city, 'Apex');
   assert.equal(listListings(db, { sort: 'commute_asc' })[0].city, 'Durham');
   assert.equal(listListings(db, { sort: 'distance_asc' })[0].distance_miles, 12.5);
@@ -111,6 +112,7 @@ test('adds Raleigh area options to city filter and filters by area', () => {
   assert.deepEqual(options, ['Durham', 'Raleigh', 'Raleigh NE', 'Raleigh SW']);
   assert.equal(listListings(db, { city: 'city:Raleigh' }).length, 2);
   assert.equal(listListings(db, { city: 'area:Raleigh NE' }).length, 1);
+  assert.equal(listListings(db, { city: ['area:Raleigh NE', 'city:Durham'] }).length, 2);
   assert.equal(listListings(db, { city: 'area:Raleigh NE' })[0].address, '100 North East St');
   assert.equal(listListings(db, { query: 'Raleigh SW' }).length, 1);
 });
@@ -153,6 +155,13 @@ test('counts known facing labels and filters by direction', () => {
     state: 'NC',
     price: 390000,
   }));
+  upsertListing(db, compactListing({
+    source: 'redfin_export',
+    address: '123 Unknown Facing St',
+    city: 'Durham',
+    state: 'NC',
+    price: 370000,
+  }));
 
   updateFacing(db, northeast.id, {
     facing_degrees: 45,
@@ -174,6 +183,9 @@ test('counts known facing labels and filters by direction', () => {
   assert.equal(getStats(db).facingKnown, 2);
   assert.equal(listListings(db, { facing: 'NE' }).length, 1);
   assert.equal(listListings(db, { facing: 'S' }).length, 1);
-  assert.equal(listListings(db, { facing: 'unknown' }).length, 0);
+  assert.equal(listListings(db, { facing: ['NE', 'S'] }).length, 2);
+  assert.equal(listListings(db, { facing: 'unknown' }).length, 1);
+  assert.equal(listListings(db, { city: 'city:Durham', facing: ['NE', 'S'] }).length, 1);
+  assert.equal(listListings(db, { facing: ['bad-value'] }).length, 0);
   assert.equal(listListings(db, { sort: 'facing_direction' })[0].address, '720 Keystone Park Dr');
 });

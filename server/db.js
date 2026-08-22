@@ -160,23 +160,31 @@ export function listListings(db, params = {}) {
     clauses.push('(address LIKE $query OR city LIKE $query OR city_area LIKE $query OR zip LIKE $query OR listing_type LIKE $query)');
     values.$query = `%${params.query}%`;
   }
-  if (params.city && params.city !== 'all') {
-    const cityFilter = parseCityFilter(params.city);
-    clauses.push(cityFilter.column === 'city_area' ? 'city_area = $city' : 'city = $city');
-    values.$city = cityFilter.value;
+  const cityFilters = filterValues(params.city).map(parseCityFilter);
+  if (cityFilters.length > 0) {
+    const cityClauses = cityFilters.map((cityFilter, index) => {
+      const key = `$city_${index}`;
+      values[key] = cityFilter.value;
+      return cityFilter.column === 'city_area' ? `city_area = ${key}` : `city = ${key}`;
+    });
+    clauses.push(`(${cityClauses.join(' OR ')})`);
   }
-  if (params.facing && params.facing !== 'all') {
-    const direction = String(params.facing).toUpperCase();
-    if (params.facing === 'needs_review') {
-      clauses.push("facing_review_status = 'needs_review'");
-    } else if (params.facing === 'unknown') {
-      clauses.push("(facing_label IS NULL OR facing_label = '')");
-    } else if (FACING_DIRECTIONS.includes(direction)) {
-      clauses.push('facing_label = $facing_label');
-      values.$facing_label = direction;
-    } else {
-      clauses.push('1 = 0');
+  const facingFilters = filterValues(params.facing);
+  if (facingFilters.length > 0) {
+    const facingClauses = [];
+    for (const [index, value] of facingFilters.entries()) {
+      const direction = String(value).toUpperCase();
+      if (value === 'needs_review') {
+        facingClauses.push("facing_review_status = 'needs_review'");
+      } else if (value === 'unknown') {
+        facingClauses.push("(facing_label IS NULL OR facing_label = '')");
+      } else if (FACING_DIRECTIONS.includes(direction)) {
+        const key = `$facing_${index}`;
+        values[key] = direction;
+        facingClauses.push(`facing_label = ${key}`);
+      }
     }
+    clauses.push(facingClauses.length > 0 ? `(${facingClauses.join(' OR ')})` : '1 = 0');
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const orderBy = orderByFor(params.sort);
@@ -612,6 +620,14 @@ function parseCityFilter(value) {
   if (value.startsWith('city:')) return { column: 'city', value: value.slice(5) };
   if (value.startsWith('area:')) return { column: 'city_area', value: value.slice(5) };
   return { column: 'city', value };
+}
+
+function filterValues(value) {
+  const values = Array.isArray(value) ? value : [value];
+  return values
+    .filter((item) => item !== undefined && item !== null)
+    .map((item) => String(item).trim())
+    .filter((item) => item !== '' && item !== 'all');
 }
 
 function orderByFor(sort = 'commute_asc') {
