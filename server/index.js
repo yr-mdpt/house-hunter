@@ -150,7 +150,8 @@ app.post('/api/facing/county-cache', async (req, res, next) => {
     const ids = rows
       .filter((row) => force || needsCountyRoadFacing(row))
       .map((row) => row.id);
-    const job = startListingJob('county_facing', ids, 'Classifying facing from county road cache');
+    const label = force ? 'Refreshing all facing from county road cache' : 'Classifying facing from county road cache';
+    const job = startListingJob('county_facing', ids, label);
     res.json({ job, refreshed: 0 });
   } catch (error) {
     next(error);
@@ -224,7 +225,7 @@ async function runListingJob(job, ids) {
     try {
       const row = listListings(db, {}).find((item) => item.id === id);
       if (row) {
-        job.message = `Checking ${row.address || 'listing ' + id}`;
+        job.message = `Checking ${job.completed + 1} of ${ids.length}: ${row.address || 'listing ' + id}`;
         if (job.type === 'county_facing') {
           const facing = classifyListingFromRoadCache(row, countyRoadsByCounty);
           updateFacing(db, id, facing);
@@ -238,6 +239,10 @@ async function runListingJob(job, ids) {
       job.message = error.message || `${job.type} check failed`;
     } finally {
       job.completed += 1;
+    }
+
+    if (!job.cancelled && job.completed < ids.length) {
+      await yieldToEventLoop();
     }
   }
 
@@ -335,6 +340,12 @@ function publicJob(job) {
 function needsCountyRoadFacing(row) {
   if (row.facing_review_status === 'needs_review') return true;
   return row.facing_status === null || row.facing_status === undefined || row.facing_status === '' || row.facing_status === 'unknown';
+}
+
+function yieldToEventLoop() {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
 }
 
 app.listen(PORT, '127.0.0.1', () => {

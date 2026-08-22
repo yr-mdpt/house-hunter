@@ -176,15 +176,47 @@ textarea {
 .job-progress div:first-child {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   color: #18201d;
   font-size: 13px;
+}
+
+.job-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .job-progress span,
 .job-progress p {
   color: #68746f;
   font-size: 13px;
+}
+
+.job-status {
+  border-radius: 999px;
+  background: #eef2ea;
+  color: #34403a;
+  padding: 5px 8px;
+  text-transform: capitalize;
+}
+
+.job-status.running {
+  background: #e6f0f2;
+  color: #20545d;
+}
+
+.job-status.complete {
+  background: #dff3e7;
+  color: #17623a;
+}
+
+.job-status.failed,
+.job-status.cancelled {
+  background: #f7e1df;
+  color: #8b2e22;
 }
 
 .progress-track {

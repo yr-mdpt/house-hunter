@@ -169,14 +169,19 @@ function App() {
 
   useEffect(() => {
     let cancelled = false;
-    async function pollJob() {
+  async function pollJob() {
       const response = await fetch('/api/jobs/current')
       const payload = await response.json()
       if (cancelled) return
       const shouldRefresh = payload.status === 'running'
         || (previousJobStatus.current === 'running' && payload.status !== 'running')
+      const shouldUpdateMessage = payload.status === 'running'
+        || (previousJobStatus.current === 'running' && payload.status !== 'running')
       previousJobStatus.current = payload.status
       setJob(payload)
+      if (shouldUpdateMessage) {
+        setMessage(formatJobNotice(payload))
+      }
       if (shouldRefresh) {
         await refresh()
       }
@@ -198,6 +203,11 @@ function App() {
     setMessage(`${label}: working...`)
     try {
       const result = await action()
+      const resultJob = jobFromResult(result)
+      if (resultJob) {
+        previousJobStatus.current = resultJob.status
+        setJob(resultJob)
+      }
       setMessage(formatResult(label, result))
       await refresh()
     } catch (error) {
@@ -515,17 +525,24 @@ function JobProgress({ job }: { job: Job }) {
   const total = job.total ?? 0
   const completed = job.completed ?? 0
   const percent = total ? Math.round((completed / total) * 100) : 0
+  const failed = job.failed ?? 0
+  const unit = jobUnitLabel(job.type)
 
   return (
     <section className="job-progress" aria-live="polite">
       <div>
         <strong>{job.label ?? 'Working'}</strong>
-        <span>{completed.toLocaleString()} / {total.toLocaleString()} checked</span>
+        <span className={`job-status ${job.status}`}>{jobStatusLabel(job.status)}</span>
+      </div>
+      <div className="job-progress-meta">
+        <span>{completed.toLocaleString()} / {total.toLocaleString()} {unit}</span>
+        <span>{percent}%</span>
+        {failed > 0 && <span>{failed.toLocaleString()} failed</span>}
       </div>
       <div className="progress-track">
         <div className="progress-fill" style={{ width: `${percent}%` }} />
       </div>
-      <p>{job.message ?? 'Processing listings'}{job.failed ? ` (${job.failed} failed)` : ''}</p>
+      <p>{job.message ?? 'Processing listings'}</p>
     </section>
   )
 }
@@ -601,12 +618,36 @@ async function readResponse(response: Response) {
 function formatResult(label: string, result: unknown) {
   if (!result || typeof result !== 'object') return `${label} finished`
   const value = result as { parsed?: number; created?: number; updated?: number; refreshed?: number; job?: Job }
-  if (value.job?.status === 'running') {
-    const parsed = typeof value.parsed === 'number' ? ` parsed ${value.parsed},` : ''
-    return `${label}:${parsed} saved ${value.created ?? 0} new and ${value.updated ?? 0} existing listings. ${jobTypeLabel(value.job.type)} checks are running.`
+  if (value.job) {
+    const importSummary = typeof value.parsed === 'number'
+      ? `${label}: parsed ${value.parsed}, saved ${value.created ?? 0} new and ${value.updated ?? 0} existing listings. `
+      : ''
+    return `${importSummary}${formatJobNotice(value.job)}`
   }
   if (typeof value.refreshed === 'number') return `${label}: checks started`
   return `${label}: parsed ${value.parsed ?? 0}, created ${value.created ?? 0}, updated ${value.updated ?? 0}`
+}
+
+function jobFromResult(result: unknown) {
+  if (!result || typeof result !== 'object') return null
+  const value = result as { job?: Job }
+  return value.job ?? null
+}
+
+function formatJobNotice(job: Job) {
+  const label = jobTypeLabel(job.type)
+  const total = job.total ?? 0
+  const completed = job.completed ?? 0
+  const failed = job.failed ?? 0
+  const unit = jobUnitLabel(job.type)
+  const progress = total ? `${completed.toLocaleString()} / ${total.toLocaleString()} ${unit}` : 'no work queued'
+  const failedText = failed ? `, ${failed.toLocaleString()} failed` : ''
+
+  if (job.status === 'running') return `${label}: ${progress}${failedText}`
+  if (job.status === 'complete') return `${label} complete: ${progress}${failedText}`
+  if (job.status === 'failed') return `${label} failed: ${progress}${failedText}`
+  if (job.status === 'cancelled') return `${label} cancelled: ${progress}${failedText}`
+  return `${label}: idle`
 }
 
 function formatMoney(value: number | null) {
@@ -662,11 +703,23 @@ function facingReasonLabel(reason: string) {
 }
 
 function jobTypeLabel(type: string | undefined) {
-  if (type === 'facing') return 'Facing'
   if (type === 'county_facing') return 'County road facing'
   if (type === 'road_cache') return 'Road cache'
   if (type === 'commute') return 'Commute'
   return 'Background'
+}
+
+function jobUnitLabel(type: string | undefined) {
+  if (type === 'road_cache') return 'counties'
+  return 'checked'
+}
+
+function jobStatusLabel(status: Job['status']) {
+  if (status === 'complete') return 'complete'
+  if (status === 'cancelled') return 'cancelled'
+  if (status === 'failed') return 'failed'
+  if (status === 'running') return 'running'
+  return 'idle'
 }
 
 function formatCacheStatus(item: RoadCacheStatus) {
