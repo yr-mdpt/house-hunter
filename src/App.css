@@ -638,11 +638,24 @@ a:hover {
   margin-top: 5px;
 }
 
-.notification span {
-  color: #68746f;
-  display: block;
-  font-size: 12px;
+.notification-footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
   margin-top: 6px;
+}
+
+.notification-footer span {
+  color: #68746f;
+  font-size: 12px;
+}
+
+.notification-footer a {
+  color: #25635b;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .quiet {

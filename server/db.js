@@ -236,13 +236,16 @@ export function listCities(db) {
   return options;
 }
 
-export function listNotifications(db) {
+export function listNotifications(db, options = {}) {
+  const todayClause = options.all ? '' : "WHERE DATE(n.created_at, 'localtime') = DATE('now', 'localtime')";
+  const limitClause = options.all ? '' : 'LIMIT 500';
   return db.prepare(`
     SELECT n.*, l.address, l.price, l.url
     FROM notifications n
     LEFT JOIN listings l ON l.id = n.listing_id
+    ${todayClause}
     ORDER BY n.created_at DESC
-    LIMIT 100
+    ${limitClause}
   `).all();
 }
 
@@ -411,11 +414,12 @@ export function upsertListing(db, listing) {
       $source_refs: JSON.stringify([sourceRef]),
       $raw_payloads: JSON.stringify([{ source: listing.source, payload: listing.raw, seen_at: sourceRef.seen_at }]),
     });
-    createNotification(db, result.lastInsertRowid, 'new_listing', 'New listing found', listing.address || listing.url || 'New listing imported');
+    createDailyNotification(db, result.lastInsertRowid, 'new_listing', 'New listing found', listing.address || listing.url || 'New listing imported');
     return { id: Number(result.lastInsertRowid), action: 'created' };
   }
 
   const previous = decodeListing(existing);
+  const wasSeenToday = isToday(db, previous.last_seen_at);
   const merged = mergeListing(previous, listing, sourceRef);
   const mergedCityArea = classifyCityArea(merged);
   db.prepare(`
@@ -453,7 +457,7 @@ export function upsertListing(db, listing) {
     $raw_payloads: JSON.stringify(merged.raw_payloads),
   });
 
-  emitChangeNotifications(db, existing.id, previous, merged);
+  emitChangeNotifications(db, existing.id, previous, merged, { skipDailyAlerts: wasSeenToday });
   return { id: existing.id, action: 'updated' };
 }
 
@@ -538,20 +542,36 @@ function mergeListing(previous, incoming, sourceRef) {
   return merged;
 }
 
-function emitChangeNotifications(db, id, previous, merged) {
-  if (previous.price && merged.price && merged.price < previous.price) {
-    createNotification(db, id, 'price_drop', 'Price drop', `${merged.address}: $${previous.price.toLocaleString()} -> $${merged.price.toLocaleString()}`);
+function emitChangeNotifications(db, id, previous, merged, options = {}) {
+  if (options.skipDailyAlerts) return;
+  if (previous.price && merged.price && merged.price !== previous.price) {
+    createDailyNotification(db, id, 'price_change', 'Price changed', `${merged.address}: $${previous.price.toLocaleString()} -> $${merged.price.toLocaleString()}`);
   }
   if (previous.status && merged.status && previous.status !== merged.status) {
-    createNotification(db, id, 'status_change', 'Status changed', `${merged.address}: ${previous.status} -> ${merged.status}`);
+    createDailyNotification(db, id, 'status_change', 'Status changed', `${merged.address}: ${previous.status} -> ${merged.status}`);
   }
   if (previous.auction_at !== merged.auction_at && merged.auction_at) {
-    createNotification(db, id, 'auction_date_change', 'Auction date changed', `${merged.address}: ${merged.auction_at}`);
+    createDailyNotification(db, id, 'auction_date_change', 'Auction date changed', `${merged.address}: ${merged.auction_at}`);
   }
 }
 
-function createNotification(db, listingId, type, title, message) {
-  db.prepare('INSERT INTO notifications (listing_id, type, title, message) VALUES (?, ?, ?, ?)').run(listingId, type, title, message);
+function createDailyNotification(db, listingId, type, title, message) {
+  const existing = db.prepare(`
+    SELECT id
+    FROM notifications
+    WHERE listing_id = ?
+      AND type = ?
+      AND DATE(created_at, 'localtime') = DATE('now', 'localtime')
+    LIMIT 1
+  `).get(listingId, type);
+  if (existing) return 0;
+  return db.prepare('INSERT INTO notifications (listing_id, type, title, message) VALUES (?, ?, ?, ?)').run(listingId, type, title, message).changes;
+}
+
+function isToday(db, value) {
+  if (!value) return false;
+  const result = db.prepare("SELECT DATE(?, 'localtime') = DATE('now', 'localtime') AS is_today").get(value);
+  return result?.is_today === 1;
 }
 
 function decodeListing(row) {

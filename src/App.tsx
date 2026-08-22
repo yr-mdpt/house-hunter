@@ -53,6 +53,7 @@ type Notification = {
   type: string
   title: string
   message: string
+  url: string
   created_at: string
   read_at: string | null
 }
@@ -157,8 +158,8 @@ function App() {
     notes: '',
   })
 
-  const sortedNotifications = useMemo(
-    () => notifications.slice(0, 6),
+  const visibleNotifications = useMemo(
+    () => notifications,
     [notifications],
   )
   const cityOptions = useMemo(
@@ -527,14 +528,17 @@ function App() {
           >
             Clear All
           </button>
-          {sortedNotifications.map((item) => (
+          {visibleNotifications.map((item) => (
             <article className={item.read_at ? 'notification' : 'notification unread'} key={item.id}>
               <strong>{item.title}</strong>
               <p>{item.message}</p>
-              <span>{new Date(item.created_at).toLocaleString()}</span>
+              <div className="notification-footer">
+                <span>{new Date(item.created_at).toLocaleString()}</span>
+                {item.url && <a href={item.url} target="_blank" rel="noreferrer">Open source</a>}
+              </div>
             </article>
           ))}
-          {sortedNotifications.length === 0 && <p className="small">New listings and material changes will land here.</p>}
+          {visibleNotifications.length === 0 && <p className="small">New listings and material changes from today will land here.</p>}
         </aside>
       </section>
     </main>
