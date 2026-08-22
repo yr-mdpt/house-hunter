@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import {
   Bell,
@@ -115,6 +115,7 @@ function App() {
   const [cities, setCities] = useState<CityOption[]>([])
   const [roadCache, setRoadCache] = useState<RoadCacheStatus[]>([])
   const [job, setJob] = useState<Job>({ status: 'idle' })
+  const previousJobStatus = useRef<Job['status']>('idle')
   const [commuteFilter, setCommuteFilter] = useState('all')
   const [cityFilter, setCityFilter] = useState('all')
   const [facingFilter, setFacingFilter] = useState('all')
@@ -172,8 +173,11 @@ function App() {
       const response = await fetch('/api/jobs/current')
       const payload = await response.json()
       if (cancelled) return
+      const shouldRefresh = payload.status === 'running'
+        || (previousJobStatus.current === 'running' && payload.status !== 'running')
+      previousJobStatus.current = payload.status
       setJob(payload)
-      if (payload.status === 'running') {
+      if (shouldRefresh) {
         await refresh()
       }
     }
