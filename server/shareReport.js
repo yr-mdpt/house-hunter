@@ -156,7 +156,7 @@ function updateSummaries(){
   summary('facing','Facings',data.facingOptions);
 }
 function summary(kind,label,options){
-  const selected=[...state[kind+'s']];
+  const selected=[...filterSet(kind)];
   const el=document.getElementById(kind+'-summary');
   if(selected.length===0){el.textContent='All '+label.toLowerCase();return;}
   if(selected.length===1){const option=options.find(item=>item.value===selected[0]);el.textContent=option?option.label:selected[0];return;}
