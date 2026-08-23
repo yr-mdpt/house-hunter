@@ -137,12 +137,14 @@ function App() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [stats, setStats] = useState<Stats>(emptyStats)
   const [cities, setCities] = useState<CityOption[]>([])
+  const [homeTypes, setHomeTypes] = useState<MultiSelectOption[]>([])
   const [roadCache, setRoadCache] = useState<RoadCacheStatus[]>([])
   const [job, setJob] = useState<Job>({ status: 'idle' })
   const previousJobStatus = useRef<Job['status']>('idle')
   const [commuteFilter, setCommuteFilter] = useState('all')
   const [cityFilter, setCityFilter] = useState<string[]>([])
   const [facingFilter, setFacingFilter] = useState<string[]>([])
+  const [homeTypeFilter, setHomeTypeFilter] = useState<string[]>([])
   const [sort, setSort] = useState('commute_asc')
   const [query, setQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -180,21 +182,24 @@ function App() {
     if (commuteFilter !== 'all') params.set('commute', commuteFilter)
     for (const city of cityFilter) params.append('city', city)
     for (const facing of facingFilter) params.append('facing', facing)
+    for (const homeType of homeTypeFilter) params.append('homeType', homeType)
     if (sort !== 'commute_asc') params.set('sort', sort)
     if (query) params.set('query', query)
-    const [listingRes, statsRes, notificationRes, citiesRes, roadCacheRes] = await Promise.all([
+    const [listingRes, statsRes, notificationRes, citiesRes, homeTypesRes, roadCacheRes] = await Promise.all([
       fetch(`/api/listings?${params}`),
       fetch('/api/stats'),
       fetch('/api/notifications'),
       fetch('/api/cities'),
+      fetch('/api/home-types'),
       fetch('/api/road-cache/status'),
     ])
     setListings(await listingRes.json())
     setStats(await statsRes.json())
     setNotifications(await notificationRes.json())
     setCities(await citiesRes.json())
+    setHomeTypes(await homeTypesRes.json())
     setRoadCache(await roadCacheRes.json())
-  }, [commuteFilter, cityFilter, facingFilter, sort, query])
+  }, [commuteFilter, cityFilter, facingFilter, homeTypeFilter, sort, query])
 
   useEffect(() => {
     void refresh()
@@ -486,6 +491,12 @@ function App() {
                 options={facingOptions}
                 selected={facingFilter}
                 onChange={setFacingFilter}
+              />
+              <MultiSelectFilter
+                label="Home types"
+                options={homeTypes}
+                selected={homeTypeFilter}
+                onChange={setHomeTypeFilter}
               />
               <select value={sort} onChange={(event) => setSort(event.target.value)}>
                 <option value="commute_asc">Drive time</option>

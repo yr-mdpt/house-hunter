@@ -16,6 +16,7 @@ const sampleReportPayload = {
     roadCacheTotal: 4,
   },
   cities: [{ value: 'city:Durham', label: 'Durham', count: 1 }],
+  homeTypes: [{ value: 'Townhouse', label: 'Townhouse', count: 1 }],
   listings: [{
     id: 1,
     address: '</script><strong>Safe House</strong>',
@@ -33,6 +34,7 @@ const sampleReportPayload = {
     facing_label: 'NE',
     facing_degrees: 45,
     facing_review_status: 'reviewed',
+    property_type: 'Townhouse',
     listing_type: 'regular_sale',
     status: 'Active',
     is_favorite: true,
@@ -74,6 +76,7 @@ test('standalone report includes readable listings before scripts run', () => {
   assert.match(staticHtml, /Price changed/);
   assert.match(staticHtml, /https:\/\/www\.redfin\.com\/example/);
   assert.match(staticHtml, /Favorite/);
+  assert.match(staticHtml, /Townhouse/);
   assert.doesNotMatch(staticHtml, /<strong>Safe House<\/strong>/);
   assert.doesNotMatch(staticHtml, /should/);
 });
@@ -114,11 +117,13 @@ function createFakeDocument(html) {
     'summary',
     'city-options',
     'facing-options',
+    'homeType-options',
     'search',
     'commute',
     'sort',
     'city-summary',
     'facing-summary',
+    'homeType-summary',
     'notification-list',
     'result-count',
     'listing-list',

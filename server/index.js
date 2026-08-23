@@ -5,6 +5,7 @@ import {
   getStats,
   listListings,
   listCities,
+  listHomeTypes,
   listNotifications,
   markNotificationsRead,
   clearNotifications,
@@ -49,6 +50,7 @@ app.get('/api/listings', (req, res) => {
     query: req.query.query,
     city: req.query.city,
     facing: req.query.facing,
+    homeType: req.query.homeType,
     sort: req.query.sort,
   }));
 });
@@ -66,6 +68,10 @@ app.get('/api/cities', (_req, res) => {
   res.json(listCities(db));
 });
 
+app.get('/api/home-types', (_req, res) => {
+  res.json(listHomeTypes(db));
+});
+
 app.get('/api/notifications', (_req, res) => {
   res.json(listNotifications(db));
 });
@@ -78,6 +84,7 @@ app.get('/api/export/report', (_req, res) => {
     notifications: listNotifications(db, { all: true }),
     stats: getStats(db),
     cities: listCities(db),
+    homeTypes: listHomeTypes(db),
   });
   const date = generatedAt.slice(0, 10);
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

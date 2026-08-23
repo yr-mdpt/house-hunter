@@ -162,7 +162,7 @@ export function listListings(db, params = {}) {
     values.$commute = params.commute;
   }
   if (params.query) {
-    clauses.push('(address LIKE $query OR city LIKE $query OR city_area LIKE $query OR zip LIKE $query OR listing_type LIKE $query)');
+    clauses.push('(address LIKE $query OR city LIKE $query OR city_area LIKE $query OR zip LIKE $query OR property_type LIKE $query OR listing_type LIKE $query)');
     values.$query = `%${params.query}%`;
   }
   const cityFilters = filterValues(params.city).map(parseCityFilter);
@@ -190,6 +190,15 @@ export function listListings(db, params = {}) {
       }
     }
     clauses.push(facingClauses.length > 0 ? `(${facingClauses.join(' OR ')})` : '1 = 0');
+  }
+  const homeTypeFilters = filterValues(params.homeType);
+  if (homeTypeFilters.length > 0) {
+    const homeTypeClauses = homeTypeFilters.map((value, index) => {
+      const key = `$home_type_${index}`;
+      values[key] = value;
+      return `property_type = ${key}`;
+    });
+    clauses.push(`(${homeTypeClauses.join(' OR ')})`);
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const orderBy = orderByFor(params.sort);
@@ -238,6 +247,16 @@ export function listCities(db) {
     }
   }
   return options;
+}
+
+export function listHomeTypes(db) {
+  return db.prepare(`
+    SELECT property_type AS value, property_type AS label, COUNT(*) AS count
+    FROM listings
+    WHERE property_type IS NOT NULL AND property_type != ''
+    GROUP BY property_type
+    ORDER BY property_type COLLATE NOCASE
+  `).all();
 }
 
 export function listNotifications(db, options = {}) {

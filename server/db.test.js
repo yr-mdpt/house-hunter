@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtempSync } from 'node:fs';
-import { openDatabase, upsertListing, listListings, listCities, listNotifications, clearNotifications, updateCommute, updateFacing, setListingFavorite, getStats } from './db.js';
+import { openDatabase, upsertListing, listListings, listCities, listHomeTypes, listNotifications, clearNotifications, updateCommute, updateFacing, setListingFavorite, getStats } from './db.js';
 import { classifyCityArea } from './cityArea.js';
 import { compactListing } from './normalize.js';
 
@@ -108,6 +108,7 @@ test('filters by city and sorts by price and commute distance', () => {
     city: 'Durham',
     state: 'NC',
     price: 450000,
+    property_type: 'Townhouse',
   }));
   const apex = upsertListing(db, compactListing({
     source: 'redfin_export',
@@ -115,6 +116,7 @@ test('filters by city and sorts by price and commute distance', () => {
     city: 'Apex',
     state: 'NC',
     price: 350000,
+    property_type: 'Single Family Residential',
   }));
 
   updateCommute(db, durham.id, { lat: 35.9, lon: -78.8, minutes: 20, distance_miles: 12.5 });
@@ -124,6 +126,14 @@ test('filters by city and sorts by price and commute distance', () => {
   assert.equal(listListings(db, { city: 'Apex' }).length, 1);
   assert.equal(listListings(db, { city: 'city:Apex' }).length, 1);
   assert.equal(listListings(db, { city: ['city:Apex', 'city:Durham'] }).length, 2);
+  assert.deepEqual(listHomeTypes(db).map((item) => ({ ...item })), [
+    { value: 'Single Family Residential', label: 'Single Family Residential', count: 1 },
+    { value: 'Townhouse', label: 'Townhouse', count: 1 },
+  ]);
+  assert.equal(listListings(db, { homeType: 'Townhouse' }).length, 1);
+  assert.equal(listListings(db, { homeType: ['Townhouse', 'Single Family Residential'] }).length, 2);
+  assert.equal(listListings(db, { city: 'city:Durham', homeType: 'Townhouse' }).length, 1);
+  assert.equal(listListings(db, { query: 'Single Family' }).length, 1);
   assert.equal(listListings(db, { sort: 'price_asc' })[0].city, 'Apex');
   assert.equal(listListings(db, { sort: 'commute_asc' })[0].city, 'Durham');
   assert.equal(listListings(db, { sort: 'distance_asc' })[0].distance_miles, 12.5);

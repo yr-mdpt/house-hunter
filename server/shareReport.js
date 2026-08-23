@@ -11,11 +11,12 @@ const FACING_OPTIONS = [
   ['needs_review', 'Needs review'],
 ];
 
-export function renderShareReport({ listings, notifications, stats, cities, generatedAt = new Date().toISOString() }) {
+export function renderShareReport({ listings, notifications, stats, cities, homeTypes = [], generatedAt = new Date().toISOString() }) {
   const data = {
     generatedAt,
     stats,
     cities,
+    homeTypes,
     facingOptions: FACING_OPTIONS.map(([value, label]) => ({ value, label })),
     listings: listings.map(reportListing),
     notifications,
@@ -77,6 +78,13 @@ export function renderShareReport({ listings, notifications, stats, cities, gene
         <div class="multi-menu">
           <div class="multi-head"><strong>Facings</strong><button type="button" data-clear="facing">Clear</button></div>
           <div id="facing-options"></div>
+        </div>
+      </details>
+      <details class="multi-filter">
+        <summary id="homeType-summary">All home types</summary>
+        <div class="multi-menu">
+          <div class="multi-head"><strong>Home types</strong><button type="button" data-clear="homeType">Clear</button></div>
+          <div id="homeType-options"></div>
         </div>
       </details>
     </section>
@@ -230,7 +238,7 @@ const REPORT_JS = `
 document.body.classList.remove('no-js');
 document.body.classList.add('js');
 const data=JSON.parse(document.getElementById('report-data').textContent);
-const state={query:'',commute:'all',sort:'commute_asc',cities:new Set(),facings:new Set()};
+const state={query:'',commute:'all',sort:'commute_asc',cities:new Set(),facings:new Set(),homeTypes:new Set()};
 const directionOrder={N:1,NE:2,E:3,SE:4,S:5,SW:6,W:7,NW:8};
 document.getElementById('generated-at').textContent=new Date(data.generatedAt).toLocaleString();
 document.getElementById('summary').innerHTML=[
@@ -239,6 +247,7 @@ document.getElementById('summary').innerHTML=[
 ].map(([label,value])=>'<div class="metric"><span>'+escapeHtml(label)+'</span><strong>'+escapeHtml(value)+'</strong></div>').join('');
 renderOptions('city',data.cities.map(item=>({value:item.value,label:item.label,count:item.count})));
 renderOptions('facing',data.facingOptions);
+renderOptions('homeType',data.homeTypes);
 document.getElementById('search').addEventListener('input',event=>{state.query=event.target.value.toLowerCase();renderListings();});
 document.getElementById('commute').addEventListener('change',event=>{state.commute=event.target.value;renderListings();});
 document.getElementById('sort').addEventListener('change',event=>{state.sort=event.target.value;renderListings();});
@@ -252,10 +261,11 @@ function renderOptions(kind,options){
   target.innerHTML=options.map(option=>'<label class="option"><input type="checkbox" data-filter="'+kind+'" value="'+escapeAttr(option.value)+'"><span>'+escapeHtml(option.label)+(option.count!==undefined?' ('+escapeHtml(option.count)+')':'')+'</span></label>').join('');
   target.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{const set=filterSet(kind);input.checked?set.add(input.value):set.delete(input.value);updateSummaries();renderListings();}));
 }
-function filterSet(kind){return kind==='city'?state.cities:state.facings;}
+function filterSet(kind){if(kind==='city')return state.cities;if(kind==='homeType')return state.homeTypes;return state.facings;}
 function updateSummaries(){
   summary('city','Cities',data.cities);
   summary('facing','Facings',data.facingOptions);
+  summary('homeType','Home types',data.homeTypes);
 }
 function summary(kind,label,options){
   const selected=[...filterSet(kind)];
@@ -274,6 +284,7 @@ function filteredListings(){
     if(state.commute!=='all'&&listing.commute_status!==state.commute)return false;
     if(state.cities.size&&![...state.cities].some(value=>matchesCity(listing,value)))return false;
     if(state.facings.size&&![...state.facings].some(value=>matchesFacing(listing,value)))return false;
+    if(state.homeTypes.size&&![...state.homeTypes].some(value=>listing.property_type===value))return false;
     if(state.query){
       const text=[listing.address,listing.city,listing.city_area,listing.zip,listing.property_type,listing.listing_type].filter(Boolean).join(' ').toLowerCase();
       if(!text.includes(state.query))return false;
