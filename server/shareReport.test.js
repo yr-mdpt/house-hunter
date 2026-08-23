@@ -50,6 +50,14 @@ const sampleReportPayload = {
     created_at: '2026-08-22 12:00:00',
     read_at: null,
     url: 'https://www.redfin.com/example',
+  }, {
+    id: 6,
+    type: 'new_listing',
+    title: 'New listing found',
+    message: 'Safe House was added today',
+    created_at: '2026-08-22 12:05:00',
+    read_at: null,
+    url: 'https://www.redfin.com/example-new',
   }],
 };
 
@@ -61,6 +69,7 @@ test('renders a standalone report with safely embedded data', () => {
   assert.match(html, /report-data/);
   assert.match(html, /2026-08-22T12:00:00.000Z/);
   assert.match(html, /Price changed/);
+  assert.match(html, /New listing found/);
   assert.match(html, /https:\/\/www\.redfin\.com\/example/);
   assert.doesNotMatch(html, /<\/script><strong>Safe House/);
   assert.doesNotMatch(html, /should/);
@@ -74,6 +83,7 @@ test('standalone report includes readable listings before scripts run', () => {
   assert.match(staticHtml, /1 of 1 listings/);
   assert.match(staticHtml, /Safe House/);
   assert.match(staticHtml, /Price changed/);
+  assert.match(staticHtml, /New listing found/);
   assert.match(staticHtml, /https:\/\/www\.redfin\.com\/example/);
   assert.match(staticHtml, /Favorite/);
   assert.match(staticHtml, /Townhouse/);
@@ -99,6 +109,32 @@ test('standalone report script renders listings on initial load', () => {
   assert.match(elements.get('result-count').textContent, /1 of 1 listings/);
   assert.match(elements.get('listing-list').innerHTML, /Safe House/);
   assert.match(elements.get('notification-list').innerHTML, /Price changed/);
+  assert.match(elements.get('notification-list').innerHTML, /New listing found/);
+});
+
+test('standalone report script filters notifications by type', () => {
+  const html = renderShareReport(sampleReportPayload);
+  const { document, elements } = createFakeDocument(html);
+  const script = extractReportScript(html);
+
+  vm.runInNewContext(script, {
+    document,
+    JSON,
+    Date,
+    Number,
+    String,
+  });
+
+  const notificationType = elements.get('notification-type');
+  notificationType.value = 'new_listing';
+  notificationType.listeners.change({ target: notificationType });
+  assert.match(elements.get('notification-list').innerHTML, /New listing found/);
+  assert.doesNotMatch(elements.get('notification-list').innerHTML, /Price changed/);
+
+  notificationType.value = 'price_change';
+  notificationType.listeners.change({ target: notificationType });
+  assert.match(elements.get('notification-list').innerHTML, /Price changed/);
+  assert.doesNotMatch(elements.get('notification-list').innerHTML, /New listing found/);
 });
 
 function extractReportScript(html) {
@@ -124,6 +160,7 @@ function createFakeDocument(html) {
     'city-summary',
     'facing-summary',
     'homeType-summary',
+    'notification-type',
     'notification-list',
     'result-count',
     'listing-list',

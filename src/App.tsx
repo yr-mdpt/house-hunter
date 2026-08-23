@@ -60,6 +60,8 @@ type Notification = {
   read_at: string | null
 }
 
+type NotificationFilter = 'all' | 'new_listing' | 'price_change'
+
 type Stats = {
   total: number
   within: number
@@ -145,6 +147,7 @@ function App() {
   const [cityFilter, setCityFilter] = useState<string[]>([])
   const [facingFilter, setFacingFilter] = useState<string[]>([])
   const [homeTypeFilter, setHomeTypeFilter] = useState<string[]>([])
+  const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>('all')
   const [sort, setSort] = useState('commute_asc')
   const [query, setQuery] = useState('')
   const [message, setMessage] = useState('')
@@ -164,8 +167,8 @@ function App() {
   })
 
   const visibleNotifications = useMemo(
-    () => notifications,
-    [notifications],
+    () => notifications.filter((item) => matchesNotificationFilter(item, notificationFilter)),
+    [notifications, notificationFilter],
   )
   const cityOptions = useMemo(
     () => cities.map((item) => ({
@@ -548,6 +551,17 @@ function App() {
           >
             Clear All
           </button>
+          <label className="notification-filter">
+            <span>Show</span>
+            <select
+              value={notificationFilter}
+              onChange={(event) => setNotificationFilter(event.target.value as NotificationFilter)}
+            >
+              <option value="all">All notifications</option>
+              <option value="new_listing">New listings</option>
+              <option value="price_change">Price changes</option>
+            </select>
+          </label>
           {visibleNotifications.map((item) => (
             <article className={item.read_at ? 'notification' : 'notification unread'} key={item.id}>
               <strong>{item.title}</strong>
@@ -558,11 +572,23 @@ function App() {
               </div>
             </article>
           ))}
-          {visibleNotifications.length === 0 && <p className="small">New listings and material changes from today will land here.</p>}
+          {visibleNotifications.length === 0 && (
+            <p className="small">
+              {notifications.length === 0
+                ? 'New listings and material changes from today will land here.'
+                : 'No matching notifications for this filter.'}
+            </p>
+          )}
         </aside>
       </section>
     </main>
   )
+}
+
+function matchesNotificationFilter(item: Notification, filter: NotificationFilter) {
+  if (filter === 'all') return true
+  if (filter === 'price_change') return item.type === 'price_change' || item.type === 'price_drop'
+  return item.type === filter
 }
 
 function Metric({ icon, label, value }: { icon: ReactNode; label: string; value: ReactNode }) {

@@ -669,6 +669,18 @@ a:hover {
   font-weight: 700;
 }
 
+.notification-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #68746f;
+  font-size: 12px;
+}
+
+.notification-filter select {
+  width: 100%;
+}
+
 .quiet {
   margin-bottom: 8px;
 }
