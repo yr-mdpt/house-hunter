@@ -35,6 +35,24 @@ Private local app for collecting, organizing, screening, and sharing home listin
 - Favorite button on each listing.
 - Source links for listings and notifications.
 
+## Screenshots
+
+### Dashboard And Road Cache
+
+![Dashboard, metrics, road cache status, filters, and notifications](docs/screenshots/dashboard.png)
+
+### Notifications And Listing Rows
+
+![Listing rows with enriched notifications and manual facing controls](docs/screenshots/notifications.png)
+
+### Facing Filter
+
+![Facing multi-select filter](docs/screenshots/facing-filter.png)
+
+### City Area Filter
+
+![City and Raleigh quadrant multi-select filter](docs/screenshots/city-filter.png)
+
 ## Facing Workflow
 
 The preferred facing workflow uses cached county road centerline data:
