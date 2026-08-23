@@ -510,7 +510,7 @@ export function updateCommute(db, id, result) {
 }
 
 export function updateFacing(db, id, result) {
-  db.prepare(`
+  return db.prepare(`
     UPDATE listings
     SET
       facing_degrees = ?,
@@ -531,7 +531,7 @@ export function updateFacing(db, id, result) {
     result.facing_reason ?? '',
     result.facing_review_status ?? (result.facing_label ? 'reviewed' : 'unreviewed'),
     id,
-  );
+  ).changes;
 }
 
 export function setListingFavorite(db, id, isFavorite) {

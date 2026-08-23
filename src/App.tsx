@@ -134,6 +134,8 @@ const facingOptions: MultiSelectOption[] = [
   { value: 'needs_review', label: 'Needs review' },
 ]
 
+const manualFacingOptions = facingOptions.filter((option) => !['unknown', 'needs_review'].includes(option.value))
+
 function App() {
   const [listings, setListings] = useState<Listing[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -307,6 +309,25 @@ function App() {
         item.id === listing.id ? { ...item, is_favorite: listing.is_favorite } : item
       )))
       setMessage(error instanceof Error ? error.message : 'Favorite update failed')
+    }
+  }
+
+  async function updateManualFacing(listing: Listing, facingLabel: string) {
+    if (!facingLabel) return
+    setBusy(true)
+    setMessage('Manual facing: saving...')
+    try {
+      const result = await patchJson(`/api/listings/${listing.id}/facing`, { facing_label: facingLabel })
+      const saved = (result as { listing?: Listing }).listing
+      if (saved) {
+        setListings((current) => current.map((item) => (item.id === saved.id ? saved : item)))
+      }
+      setMessage(`Manual facing saved for ${listing.address || 'listing'}`)
+      await refresh()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Manual facing update failed')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -519,6 +540,7 @@ function App() {
                 listing={listing}
                 disabled={isWorking}
                 onToggleFavorite={toggleFavorite}
+                onManualFacing={updateManualFacing}
               />
             ))}
             {listings.length === 0 && (
@@ -711,11 +733,28 @@ function ListingRow({
   listing,
   disabled,
   onToggleFavorite,
+  onManualFacing,
 }: {
   listing: Listing
   disabled: boolean
   onToggleFavorite: (listing: Listing) => void
+  onManualFacing: (listing: Listing, facingLabel: string) => Promise<void>
 }) {
+  const canManuallyUpdateFacing = listing.facing_review_status === 'needs_review' || !listing.facing_label
+  const [manualFacingValue, setManualFacingValue] = useState('')
+  const [savingManualFacing, setSavingManualFacing] = useState(false)
+
+  async function saveManualFacing() {
+    if (!manualFacingValue) return
+    setSavingManualFacing(true)
+    try {
+      await onManualFacing(listing, manualFacingValue)
+      setManualFacingValue('')
+    } finally {
+      setSavingManualFacing(false)
+    }
+  }
+
   return (
     <article className="listing">
       <div className="listing-main">
@@ -755,6 +794,29 @@ function ListingRow({
         <span>{yearBuiltLabel(listing.year_built)}</span>
         <span>{listing.property_type || 'type unknown'}</span>
       </div>
+      {canManuallyUpdateFacing && (
+        <label className="manual-facing">
+          <span>Manual facing</span>
+          <select
+            value={manualFacingValue}
+            disabled={disabled || savingManualFacing}
+            onChange={(event) => setManualFacingValue(event.target.value)}
+          >
+            <option value="">Set facing</option>
+            {manualFacingOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.value}</option>
+            ))}
+          </select>
+          <button
+            className="compact"
+            type="button"
+            disabled={disabled || savingManualFacing || !manualFacingValue}
+            onClick={() => void saveManualFacing()}
+          >
+            {savingManualFacing ? 'Saving...' : 'Save'}
+          </button>
+        </label>
+      )}
       {listing.facing_reason && <p className="small">Facing source: {facingReasonLabel(listing.facing_reason)}</p>}
       {listing.auction_at && <p className="small">Auction: {listing.auction_at}</p>}
       {listing.notes && <p className="notes">{listing.notes}</p>}
@@ -876,7 +938,15 @@ function facingBadgeClass(listing: Listing) {
 }
 
 function facingDetail(listing: Listing) {
-  if (listing.facing_degrees === null || listing.facing_degrees === undefined) return 'facing unknown'
+  if (listing.facing_degrees === null || listing.facing_degrees === undefined) {
+    if (listing.facing_label) {
+      const confidence = listing.facing_confidence && listing.facing_confidence !== 'unknown'
+        ? `, ${listing.facing_confidence}`
+        : ''
+      return `Facing ${listing.facing_label}${confidence}`
+    }
+    return 'facing unknown'
+  }
   const confidence = listing.facing_confidence && listing.facing_confidence !== 'unknown'
     ? `, ${listing.facing_confidence}`
     : ''
@@ -884,6 +954,7 @@ function facingDetail(listing: Listing) {
 }
 
 function facingReasonLabel(reason: string) {
+  if (reason.includes('manual_entry')) return 'Manual entry'
   const street = reason.includes(';') ? reason.split(';')[0].trim() : ''
   const prefix = street ? `${street}: ` : ''
   if (reason.includes('map_lookup_failed')) return `${prefix}Map lookup failed, retry later`

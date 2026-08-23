@@ -601,6 +601,25 @@ textarea {
   margin: 12px 0;
 }
 
+.manual-facing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #68746f;
+  font-size: 12px;
+  margin: 0 0 10px;
+}
+
+.manual-facing select {
+  min-height: 32px;
+  width: 120px;
+}
+
+.manual-facing button {
+  min-height: 32px;
+  min-width: 72px;
+}
+
 .notes {
   color: #3d4843;
   font-size: 13px;

@@ -296,3 +296,35 @@ test('persists listing favorites', () => {
   assert.equal(listListings(db)[0].is_favorite, false);
   assert.equal(setListingFavorite(db, 999999, true), 0);
 });
+
+test('stores manual facing labels without degrees', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
+  const db = openDatabase(join(dir, 'test.sqlite'));
+
+  const listing = upsertListing(db, compactListing({
+    source: 'redfin_export',
+    address: '600 Manual Facing Way',
+    city: 'Durham',
+    state: 'NC',
+  }));
+
+  assert.equal(updateFacing(db, listing.id, {
+    facing_degrees: null,
+    facing_label: 'N',
+    facing_confidence: 'manual',
+    facing_source: 'manual',
+    facing_reason: 'manual_entry',
+    facing_review_status: 'reviewed',
+  }), 1);
+
+  const saved = listListings(db)[0];
+  assert.equal(saved.facing_degrees, null);
+  assert.equal(saved.facing_label, 'N');
+  assert.equal(saved.facing_status, 'known');
+  assert.equal(saved.facing_confidence, 'manual');
+  assert.equal(saved.facing_reason, 'manual_entry');
+  assert.equal(saved.facing_review_status, 'reviewed');
+  assert.equal(getStats(db).facingKnown, 1);
+  assert.equal(listListings(db, { facing: 'N' }).length, 1);
+  assert.equal(listListings(db, { facing: 'unknown' }).length, 0);
+});

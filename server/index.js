@@ -26,6 +26,7 @@ import { classifyCommute } from './geo.js';
 import { classifyListingFromRoadCache, fetchCountyRoads } from './roadCache.js';
 import { ROAD_CACHE_COUNTIES } from './roadCacheConfig.js';
 import { renderShareReport } from './shareReport.js';
+import { FACING_DIRECTIONS } from './facingLabels.js';
 
 const PORT = Number(process.env.PORT ?? 4242);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024 } });
@@ -60,6 +61,29 @@ app.patch('/api/listings/:id/favorite', (req, res) => {
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
   const changes = setListingFavorite(db, id, req.body?.favorite === true);
   if (changes === 0) return res.status(404).json({ error: 'Listing not found' });
+  const listing = listListings(db, {}).find((item) => item.id === id);
+  res.json({ ok: true, listing });
+});
+
+app.patch('/api/listings/:id/facing', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
+
+  const facingLabel = String(req.body?.facing_label ?? '').trim().toUpperCase();
+  if (!FACING_DIRECTIONS.includes(facingLabel)) {
+    return res.status(400).json({ error: 'Choose a valid facing direction' });
+  }
+
+  const changes = updateFacing(db, id, {
+    facing_degrees: null,
+    facing_label: facingLabel,
+    facing_confidence: 'manual',
+    facing_source: 'manual',
+    facing_reason: 'manual_entry',
+    facing_review_status: 'reviewed',
+  });
+  if (changes === 0) return res.status(404).json({ error: 'Listing not found' });
+
   const listing = listListings(db, {}).find((item) => item.id === id);
   res.json({ ok: true, listing });
 });
