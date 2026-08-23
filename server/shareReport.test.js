@@ -64,6 +64,20 @@ test('renders a standalone report with safely embedded data', () => {
   assert.doesNotMatch(html, /should/);
 });
 
+test('standalone report includes readable listings before scripts run', () => {
+  const html = renderShareReport(sampleReportPayload);
+  const staticHtml = html.slice(0, html.indexOf('<script id="report-data"'));
+
+  assert.match(staticHtml, /<body class="no-js">/);
+  assert.match(staticHtml, /1 of 1 listings/);
+  assert.match(staticHtml, /Safe House/);
+  assert.match(staticHtml, /Price changed/);
+  assert.match(staticHtml, /https:\/\/www\.redfin\.com\/example/);
+  assert.match(staticHtml, /Favorite/);
+  assert.doesNotMatch(staticHtml, /<strong>Safe House<\/strong>/);
+  assert.doesNotMatch(staticHtml, /should/);
+});
+
 test('standalone report script renders listings on initial load', () => {
   const html = renderShareReport(sampleReportPayload);
   const { document, elements } = createFakeDocument(html);
@@ -116,6 +130,7 @@ function createFakeDocument(html) {
   return {
     elements,
     document: {
+      body: new FakeBody(),
       getElementById(id) {
         return elements.get(id);
       },
@@ -124,6 +139,24 @@ function createFakeDocument(html) {
       },
     },
   };
+}
+
+class FakeBody {
+  constructor() {
+    this.className = 'no-js';
+    this.classList = {
+      add: (name) => {
+        const classes = new Set(this.className.split(/\s+/).filter(Boolean));
+        classes.add(name);
+        this.className = [...classes].join(' ');
+      },
+      remove: (name) => {
+        const classes = new Set(this.className.split(/\s+/).filter(Boolean));
+        classes.delete(name);
+        this.className = [...classes].join(' ');
+      },
+    };
+  }
 }
 
 class FakeElement {
