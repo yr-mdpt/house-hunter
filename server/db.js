@@ -263,13 +263,22 @@ export function listNotifications(db, options = {}) {
   const todayClause = options.all ? '' : "WHERE DATE(n.created_at, 'localtime') = DATE('now', 'localtime')";
   const limitClause = options.all ? '' : 'LIMIT 500';
   return db.prepare(`
-    SELECT n.*, l.address, l.price, l.url
+    SELECT
+      n.*,
+      l.address AS listing_address,
+      l.price AS listing_price,
+      l.sqft AS listing_sqft,
+      l.city AS listing_city,
+      l.city_area AS listing_city_area,
+      l.facing_label AS listing_facing_label,
+      l.facing_review_status AS listing_facing_review_status,
+      l.url AS url
     FROM notifications n
     LEFT JOIN listings l ON l.id = n.listing_id
     ${todayClause}
     ORDER BY n.created_at DESC
     ${limitClause}
-  `).all();
+  `).all().map(formatNotificationRow);
 }
 
 export function markNotificationsRead(db) {
@@ -438,7 +447,7 @@ export function upsertListing(db, listing) {
       $source_refs: JSON.stringify([sourceRef]),
       $raw_payloads: JSON.stringify([{ source: listing.source, payload: listing.raw, seen_at: sourceRef.seen_at }]),
     });
-    createDailyNotification(db, result.lastInsertRowid, 'new_listing', 'New listing found', listing.address || listing.url || 'New listing imported');
+    createDailyNotification(db, result.lastInsertRowid, 'new_listing', 'New listing found', newListingMessage(listing));
     return { id: Number(result.lastInsertRowid), action: 'created' };
   }
 
@@ -592,6 +601,62 @@ function createDailyNotification(db, listingId, type, title, message) {
   `).get(listingId, type);
   if (existing) return 0;
   return db.prepare('INSERT INTO notifications (listing_id, type, title, message) VALUES (?, ?, ?, ?)').run(listingId, type, title, message).changes;
+}
+
+function formatNotificationRow(row) {
+  const {
+    listing_address: listingAddress,
+    listing_price: listingPrice,
+    listing_sqft: listingSqft,
+    listing_city: listingCity,
+    listing_city_area: listingCityArea,
+    listing_facing_label: listingFacingLabel,
+    listing_facing_review_status: listingFacingReviewStatus,
+    ...notification
+  } = row;
+
+  if (notification.type !== 'new_listing') return notification;
+
+  return {
+    ...notification,
+    message: newListingMessage({
+      address: listingAddress || notification.message,
+      price: listingPrice,
+      sqft: listingSqft,
+      city_area: listingCityArea,
+      city: listingCity,
+      facing_label: listingFacingLabel,
+      facing_review_status: listingFacingReviewStatus,
+      url: notification.url,
+    }),
+  };
+}
+
+function newListingMessage(listing) {
+  return [
+    listing.address || listing.url || 'New listing imported',
+    formatNotificationPrice(listing.price),
+    formatNotificationSqft(listing.sqft),
+    listing.city_area || listing.city || '',
+    formatNotificationFacing(listing),
+  ].filter(Boolean).join(' - ');
+}
+
+function formatNotificationPrice(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return Number.isFinite(Number(value)) ? `$${Number(value).toLocaleString()}` : '';
+}
+
+function formatNotificationSqft(value) {
+  if (value === null || value === undefined || value === '') return '';
+  return Number.isFinite(Number(value)) ? `${Number(value).toLocaleString()} sqft` : '';
+}
+
+function formatNotificationFacing(listing) {
+  if (!listing.facing_label) return 'Facing unknown';
+  return listing.facing_review_status === 'needs_review'
+    ? `Facing ${listing.facing_label}, review`
+    : `Facing ${listing.facing_label}`;
 }
 
 function isToday(db, value) {

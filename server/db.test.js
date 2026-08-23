@@ -14,12 +14,15 @@ test('dedupes by normalized address and emits one new-listing notification per d
   const first = compactListing({
     source: 'redfin_export',
     address: '123 Main Street, Durham, NC 27703',
+    city: 'Durham',
     price: '$500,000',
+    sqft: '1,980',
     status: 'active',
   });
   const second = compactListing({
     source: 'zillow_email',
     address: '123 Main St Durham NC 27703',
+    city: 'Durham',
     price: '$475,000',
     status: 'pending',
   });
@@ -33,13 +36,71 @@ test('dedupes by normalized address and emits one new-listing notification per d
   assert.equal(listings[0].status, 'pending');
 
   const notifications = listNotifications(db);
-  assert.equal(notifications.filter((item) => item.type === 'new_listing').length, 1);
+  const newListingNotifications = notifications.filter((item) => item.type === 'new_listing');
+  assert.equal(newListingNotifications.length, 1);
+  assert.match(newListingNotifications[0].message, /123 Main St/);
+  assert.match(newListingNotifications[0].message, /\$475,000/);
+  assert.match(newListingNotifications[0].message, /1,980 sqft/);
+  assert.match(newListingNotifications[0].message, /Durham/);
+  assert.match(newListingNotifications[0].message, /Facing unknown/);
   assert.equal(notifications.some((item) => item.type === 'price_change'), false);
   assert.equal(notifications.some((item) => item.type === 'status_change'), false);
 
   const cleared = clearNotifications(db);
   assert.equal(cleared, notifications.length);
   assert.equal(listNotifications(db).length, 0);
+});
+
+test('enriches existing new-listing notification messages from listing facts', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
+  const db = openDatabase(join(dir, 'test.sqlite'));
+
+  upsertListing(db, compactListing({
+    source: 'redfin_export',
+    address: '456 Legacy Notice Dr',
+    city: 'Cary',
+    state: 'NC',
+    price: '$425,000',
+    sqft: '2,120',
+  }));
+  db.prepare("UPDATE notifications SET message = '456 Legacy Notice Dr'").run();
+
+  const notification = listNotifications(db).find((item) => item.type === 'new_listing');
+  assert.match(notification.message, /456 Legacy Notice Dr/);
+  assert.match(notification.message, /\$425,000/);
+  assert.match(notification.message, /2,120 sqft/);
+  assert.match(notification.message, /Cary/);
+  assert.match(notification.message, /Facing unknown/);
+});
+
+test('uses Raleigh quadrant in new-listing notification location', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
+  const db = openDatabase(join(dir, 'test.sqlite'));
+
+  const listing = upsertListing(db, compactListing({
+    source: 'redfin_export',
+    address: '789 Quadrant Ave',
+    city: 'Raleigh',
+    state: 'NC',
+    price: '$410,000',
+    sqft: '1,900',
+    latitude: 35.79,
+    longitude: -78.63,
+  }));
+  updateFacing(db, listing.id, {
+    facing_degrees: 45,
+    facing_label: 'NE',
+    facing_confidence: 'high',
+    facing_source: 'test',
+    facing_reason: 'test road',
+  });
+
+  const notification = listNotifications(db).find((item) => item.type === 'new_listing');
+  assert.match(notification.message, /789 Quadrant Ave/);
+  assert.match(notification.message, /\$410,000/);
+  assert.match(notification.message, /1,900 sqft/);
+  assert.match(notification.message, /Raleigh NE/);
+  assert.match(notification.message, /Facing NE/);
 });
 
 test('emits one daily price-change notification for previous-day listings', () => {
