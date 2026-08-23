@@ -81,7 +81,7 @@ app.get('/api/export/report', (_req, res) => {
   const html = renderShareReport({
     generatedAt,
     listings: listListings(db, { limit: 'all' }),
-    notifications: listNotifications(db, { all: true }),
+    notifications: listNotifications(db),
     stats: getStats(db),
     cities: listCities(db),
     homeTypes: listHomeTypes(db),

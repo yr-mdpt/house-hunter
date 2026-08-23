@@ -162,7 +162,7 @@ function listingCardHtml(listing) {
 function notificationsHtml(notifications) {
   return notifications.length
     ? notifications.map(notificationCardHtml).join('')
-    : '<p class="small">No notifications in this snapshot.</p>';
+    : '<p class="small">New listings and material changes from today will land here.</p>';
 }
 
 function notificationCardHtml(item) {
@@ -338,7 +338,7 @@ function listingHtml(listing){
 function renderNotifications(){
   const target=document.getElementById('notification-list');
   const list=filteredNotifications();
-  const empty=data.notifications.length?'No matching notifications in this snapshot.':'No notifications in this snapshot.';
+  const empty=data.notifications.length?'No matching notifications for this filter.':'New listings and material changes from today will land here.';
   target.innerHTML=list.length?list.map(item=>'<article class="notification"><strong>'+escapeHtml(item.title)+'</strong><p>'+escapeHtml(item.message)+'</p><div class="notification-footer"><span>'+escapeHtml(new Date(item.created_at).toLocaleString())+'</span>'+(item.url?'<a href="'+escapeAttr(item.url)+'" target="_blank" rel="noreferrer">Open source</a>':'')+'</div></article>').join(''):'<p class="small">'+empty+'</p>';
 }
 function filteredNotifications(){return data.notifications.filter(item=>{if(state.notificationType==='all')return true;if(state.notificationType==='price_change')return item.type==='price_change'||item.type==='price_drop';return item.type===state.notificationType;});}

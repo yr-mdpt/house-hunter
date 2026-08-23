@@ -68,6 +68,7 @@ test('renders a standalone report with safely embedded data', () => {
   assert.match(html, /House Hunter Report/);
   assert.match(html, /report-data/);
   assert.match(html, /2026-08-22T12:00:00.000Z/);
+  assert.match(html, /id="notification-type"/);
   assert.match(html, /Price changed/);
   assert.match(html, /New listing found/);
   assert.match(html, /https:\/\/www\.redfin\.com\/example/);
@@ -82,6 +83,7 @@ test('standalone report includes readable listings before scripts run', () => {
   assert.match(staticHtml, /<body class="no-js">/);
   assert.match(staticHtml, /1 of 1 listings/);
   assert.match(staticHtml, /Safe House/);
+  assert.match(staticHtml, /notification-filter js-only/);
   assert.match(staticHtml, /Price changed/);
   assert.match(staticHtml, /New listing found/);
   assert.match(staticHtml, /https:\/\/www\.redfin\.com\/example/);
@@ -135,6 +137,15 @@ test('standalone report script filters notifications by type', () => {
   notificationType.listeners.change({ target: notificationType });
   assert.match(elements.get('notification-list').innerHTML, /Price changed/);
   assert.doesNotMatch(elements.get('notification-list').innerHTML, /New listing found/);
+});
+
+test('standalone report uses app-style notification empty state', () => {
+  const html = renderShareReport({
+    ...sampleReportPayload,
+    notifications: [],
+  });
+
+  assert.match(html, /New listings and material changes from today will land here\./);
 });
 
 function extractReportScript(html) {
