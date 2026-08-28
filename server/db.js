@@ -212,6 +212,11 @@ export function listListings(db, params = {}) {
   return rows.map(decodeListing);
 }
 
+export function getListing(db, id) {
+  const row = db.prepare('SELECT * FROM listings WHERE id = ?').get(id);
+  return row ? decodeListing(row) : null;
+}
+
 export function listCities(db) {
   const cityRows = db.prepare(`
     SELECT city, COUNT(*) AS count

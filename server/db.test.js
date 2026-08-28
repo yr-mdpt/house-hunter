@@ -200,6 +200,24 @@ test('filters by city and sorts by price and commute distance', () => {
   assert.equal(listListings(db, { sort: 'distance_asc' })[0].distance_miles, 12.5);
 });
 
+test('supports uncapped internal listing queries', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
+  const db = openDatabase(join(dir, 'test.sqlite'));
+
+  for (let index = 0; index < 505; index += 1) {
+    upsertListing(db, compactListing({
+      source: 'redfin_export',
+      address: `${1000 + index} Limit Test Dr`,
+      city: 'Durham',
+      state: 'NC',
+      price: 300000 + index,
+    }));
+  }
+
+  assert.equal(listListings(db).length, 500);
+  assert.equal(listListings(db, { limit: 'all' }).length, 505);
+});
+
 test('stores and backfills year built from Redfin raw payloads', () => {
   const dir = mkdtempSync(join(tmpdir(), 'house-hunter-'));
   const path = join(dir, 'test.sqlite');

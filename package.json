@@ -10,7 +10,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node --test server/**/*.test.js"
+    "test": "node --test server/*.test.js server/importers/*.test.js"
   },
   "dependencies": {
     "express": "^5.2.1",

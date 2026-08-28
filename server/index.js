@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import {
   openDatabase,
+  getListing,
   getStats,
   listListings,
   listCities,
@@ -61,7 +62,7 @@ app.patch('/api/listings/:id/favorite', (req, res) => {
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid listing id' });
   const changes = setListingFavorite(db, id, req.body?.favorite === true);
   if (changes === 0) return res.status(404).json({ error: 'Listing not found' });
-  const listing = listListings(db, {}).find((item) => item.id === id);
+  const listing = getListing(db, id);
   res.json({ ok: true, listing });
 });
 
@@ -84,7 +85,7 @@ app.patch('/api/listings/:id/facing', (req, res) => {
   });
   if (changes === 0) return res.status(404).json({ error: 'Listing not found' });
 
-  const listing = listListings(db, {}).find((item) => item.id === id);
+  const listing = getListing(db, id);
   res.json({ ok: true, listing });
 });
 
@@ -183,7 +184,7 @@ app.post('/api/sync/public-sales', async (_req, res, next) => {
 
 app.post('/api/commutes/refresh', async (_req, res, next) => {
   try {
-    const rows = listListings(db, {});
+    const rows = listListings(db, { limit: 'all' });
     const job = startListingJob('commute', rows.map((row) => row.id), 'Refreshing all commutes');
     res.json({ job, refreshed: 0 });
   } catch (error) {
@@ -202,7 +203,7 @@ app.post('/api/road-cache/refresh', async (_req, res, next) => {
 
 app.post('/api/facing/county-cache', async (req, res, next) => {
   try {
-    const rows = listListings(db, {});
+    const rows = listListings(db, { limit: 'all' });
     const force = req.body?.force === true;
     const ids = rows
       .filter((row) => force || needsCountyRoadFacing(row))
@@ -227,7 +228,7 @@ async function saveListings(listings, options = { classify: true }) {
     summary.ids.push(saved.id);
     summary[saved.action] += 1;
     if (options.classify !== false) {
-      const row = listListings(db, {}).find((item) => item.id === saved.id);
+      const row = getListing(db, saved.id);
       if (row) {
         const commute = await classifyCommute(db, row);
         updateCommute(db, saved.id, commute);
@@ -280,7 +281,7 @@ async function runListingJob(job, ids) {
     }
 
     try {
-      const row = listListings(db, {}).find((item) => item.id === id);
+      const row = getListing(db, id);
       if (row) {
         job.message = `Checking ${job.completed + 1} of ${ids.length}: ${row.address || 'listing ' + id}`;
         if (job.type === 'county_facing') {
