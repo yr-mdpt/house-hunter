@@ -585,7 +585,7 @@ function mergeListing(previous, incoming, sourceRef) {
 function emitChangeNotifications(db, id, previous, merged, options = {}) {
   if (options.skipDailyAlerts) return;
   if (previous.price && merged.price && merged.price !== previous.price) {
-    createDailyNotification(db, id, 'price_change', 'Price changed', `${merged.address}: $${previous.price.toLocaleString()} -> $${merged.price.toLocaleString()}`);
+    createDailyNotification(db, id, 'price_change', 'Price changed', priceChangeMessage(merged, previous.price, merged.price));
   }
   if (previous.status && merged.status && previous.status !== merged.status) {
     createDailyNotification(db, id, 'status_change', 'Status changed', `${merged.address}: ${previous.status} -> ${merged.status}`);
@@ -620,6 +620,22 @@ function formatNotificationRow(row) {
     ...notification
   } = row;
 
+  if (notification.type === 'price_change') {
+    return {
+      ...notification,
+      message: priceChangeMessage({
+        address: listingAddress || notification.message,
+        price: listingPrice,
+        sqft: listingSqft,
+        city_area: listingCityArea,
+        city: listingCity,
+        facing_label: listingFacingLabel,
+        facing_review_status: listingFacingReviewStatus,
+        url: notification.url,
+      }, ...pricesFromChangeMessage(notification.message, listingPrice)),
+    };
+  }
+
   if (notification.type !== 'new_listing') return notification;
 
   return {
@@ -645,6 +661,28 @@ function newListingMessage(listing) {
     listing.city_area || listing.city || '',
     formatNotificationFacing(listing),
   ].filter(Boolean).join(' - ');
+}
+
+function priceChangeMessage(listing, previousPrice, nextPrice) {
+  return [
+    listing.address || listing.url || 'Listing price changed',
+    formatPriceChange(previousPrice, nextPrice),
+    formatNotificationSqft(listing.sqft),
+    listing.city_area || listing.city || '',
+    formatNotificationFacing(listing),
+  ].filter(Boolean).join(' - ');
+}
+
+function formatPriceChange(previousPrice, nextPrice) {
+  const previous = formatNotificationPrice(previousPrice);
+  const next = formatNotificationPrice(nextPrice);
+  return previous && next ? `${previous} -> ${next}` : next || previous;
+}
+
+function pricesFromChangeMessage(message, fallbackPrice) {
+  const matches = String(message ?? '').match(/\$[\d,]+/g) ?? [];
+  const [previous, next] = matches.map((value) => Number(value.replace(/[^\d]/g, '')));
+  return [Number.isFinite(previous) ? previous : null, Number.isFinite(next) ? next : fallbackPrice];
 }
 
 function formatNotificationPrice(value) {

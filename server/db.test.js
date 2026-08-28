@@ -114,8 +114,17 @@ test('emits one daily price-change notification for previous-day listings', () =
     city: 'Durham',
     state: 'NC',
     price: '$500,000',
+    sqft: '2,240',
     url: 'https://www.redfin.com/old-price',
   }));
+  const listing = listListings(db)[0];
+  updateFacing(db, listing.id, {
+    facing_degrees: 135,
+    facing_label: 'SE',
+    facing_confidence: 'high',
+    facing_source: 'test',
+    facing_reason: 'test road',
+  });
   clearNotifications(db);
   db.prepare('UPDATE listings SET first_seen_at = ?, last_seen_at = ?, updated_at = ?').run(previousDay, previousDay, previousDay);
 
@@ -125,6 +134,7 @@ test('emits one daily price-change notification for previous-day listings', () =
     city: 'Durham',
     state: 'NC',
     price: '$475,000',
+    sqft: '2,240',
     url: 'https://www.redfin.com/new-price',
   }));
   upsertListing(db, compactListing({
@@ -133,13 +143,18 @@ test('emits one daily price-change notification for previous-day listings', () =
     city: 'Durham',
     state: 'NC',
     price: '$450,000',
+    sqft: '2,240',
     url: 'https://www.redfin.com/newer-price',
   }));
 
   const notifications = listNotifications(db);
   assert.equal(notifications.filter((item) => item.type === 'price_change').length, 1);
   assert.equal(notifications[0].title, 'Price changed');
-  assert.equal(notifications[0].message.includes('$500,000 -> $475,000'), true);
+  assert.match(notifications[0].message, /123 Price Change St/);
+  assert.match(notifications[0].message, /\$500,000 -> \$475,000/);
+  assert.match(notifications[0].message, /2,240 sqft/);
+  assert.match(notifications[0].message, /Durham/);
+  assert.match(notifications[0].message, /Facing SE/);
   assert.equal(notifications[0].url, 'https://www.redfin.com/newer-price');
 });
 
