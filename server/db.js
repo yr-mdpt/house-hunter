@@ -200,6 +200,16 @@ export function listListings(db, params = {}) {
     });
     clauses.push(`(${homeTypeClauses.join(' OR ')})`);
   }
+  const minSqft = positiveNumberFrom(params.minSqft);
+  if (minSqft !== null) {
+    clauses.push('sqft >= $min_sqft');
+    values.$min_sqft = minSqft;
+  }
+  const minBeds = positiveNumberFrom(params.minBeds);
+  if (minBeds !== null) {
+    clauses.push('beds >= $min_beds');
+    values.$min_beds = minBeds;
+  }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const orderBy = orderByFor(params.sort);
   const limitClause = params.limit === 'all' ? '' : 'LIMIT 500';
@@ -834,6 +844,13 @@ function filterValues(value) {
     .filter((item) => item !== undefined && item !== null)
     .map((item) => String(item).trim())
     .filter((item) => item !== '' && item !== 'all');
+}
+
+function positiveNumberFrom(value) {
+  if (Array.isArray(value)) return positiveNumberFrom(value[0]);
+  if (value === undefined || value === null || value === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
 }
 
 function orderByFor(sort = 'commute_asc') {

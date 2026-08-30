@@ -53,6 +53,8 @@ app.get('/api/listings', (req, res) => {
     city: req.query.city,
     facing: req.query.facing,
     homeType: req.query.homeType,
+    minSqft: req.query.minSqft,
+    minBeds: req.query.minBeds,
     sort: req.query.sort,
   }));
 });

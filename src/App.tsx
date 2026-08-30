@@ -149,6 +149,8 @@ function App() {
   const [cityFilter, setCityFilter] = useState<string[]>([])
   const [facingFilter, setFacingFilter] = useState<string[]>([])
   const [homeTypeFilter, setHomeTypeFilter] = useState<string[]>([])
+  const [minSqftFilter, setMinSqftFilter] = useState('')
+  const [minBedsFilter, setMinBedsFilter] = useState('')
   const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>('all')
   const [sort, setSort] = useState('commute_asc')
   const [query, setQuery] = useState('')
@@ -188,6 +190,8 @@ function App() {
     for (const city of cityFilter) params.append('city', city)
     for (const facing of facingFilter) params.append('facing', facing)
     for (const homeType of homeTypeFilter) params.append('homeType', homeType)
+    if (minSqftFilter) params.set('minSqft', minSqftFilter)
+    if (minBedsFilter) params.set('minBeds', minBedsFilter)
     if (sort !== 'commute_asc') params.set('sort', sort)
     if (query) params.set('query', query)
     const [listingRes, statsRes, notificationRes, citiesRes, homeTypesRes, roadCacheRes] = await Promise.all([
@@ -204,7 +208,7 @@ function App() {
     setCities(await citiesRes.json())
     setHomeTypes(await homeTypesRes.json())
     setRoadCache(await roadCacheRes.json())
-  }, [commuteFilter, cityFilter, facingFilter, homeTypeFilter, sort, query])
+  }, [commuteFilter, cityFilter, facingFilter, homeTypeFilter, minSqftFilter, minBedsFilter, sort, query])
 
   useEffect(() => {
     void refresh()
@@ -521,6 +525,23 @@ function App() {
                 options={homeTypes}
                 selected={homeTypeFilter}
                 onChange={setHomeTypeFilter}
+              />
+              <input
+                type="number"
+                min="0"
+                inputMode="numeric"
+                value={minSqftFilter}
+                onChange={(event) => setMinSqftFilter(event.target.value)}
+                placeholder="Min sqft"
+              />
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                inputMode="decimal"
+                value={minBedsFilter}
+                onChange={(event) => setMinBedsFilter(event.target.value)}
+                placeholder="Min beds"
               />
               <select value={sort} onChange={(event) => setSort(event.target.value)}>
                 <option value="commute_asc">Drive time</option>

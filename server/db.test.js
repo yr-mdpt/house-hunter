@@ -184,6 +184,8 @@ test('filters by city and sorts by price and commute distance', () => {
     city: 'Durham',
     state: 'NC',
     price: 450000,
+    beds: 3,
+    sqft: 1800,
     property_type: 'Townhouse',
   }));
   const apex = upsertListing(db, compactListing({
@@ -192,6 +194,8 @@ test('filters by city and sorts by price and commute distance', () => {
     city: 'Apex',
     state: 'NC',
     price: 350000,
+    beds: 4,
+    sqft: 2400,
     property_type: 'Single Family Residential',
   }));
 
@@ -209,6 +213,12 @@ test('filters by city and sorts by price and commute distance', () => {
   assert.equal(listListings(db, { homeType: 'Townhouse' }).length, 1);
   assert.equal(listListings(db, { homeType: ['Townhouse', 'Single Family Residential'] }).length, 2);
   assert.equal(listListings(db, { city: 'city:Durham', homeType: 'Townhouse' }).length, 1);
+  assert.equal(listListings(db, { minSqft: '2000' }).length, 1);
+  assert.equal(listListings(db, { minSqft: '2000' })[0].city, 'Apex');
+  assert.equal(listListings(db, { minBeds: '4' }).length, 1);
+  assert.equal(listListings(db, { minBeds: '4' })[0].city, 'Apex');
+  assert.equal(listListings(db, { minSqft: '2000', minBeds: '4' }).length, 1);
+  assert.equal(listListings(db, { minSqft: '2000', minBeds: '5' }).length, 0);
   assert.equal(listListings(db, { query: 'Single Family' }).length, 1);
   assert.equal(listListings(db, { sort: 'price_asc' })[0].city, 'Apex');
   assert.equal(listListings(db, { sort: 'commute_asc' })[0].city, 'Durham');
